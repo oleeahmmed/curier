@@ -1,0 +1,173 @@
+/* Custom Tabs & Form Styling for Unfold Admin */
+
+/* ==================== TABS STYLING ==================== */
+
+/* Tab container background - light blue/gray */
+ul.bg-base-100 {
+    background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f0 100%) !important;
+    border: 1px solid rgba(26, 77, 109, 0.1) !important;
+}
+
+/* Tab buttons - default state */
+ul.bg-base-100 li a {
+    color: #1a4d6d !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Tab buttons - hover state */
+ul.bg-base-100 li a:hover {
+    background: rgba(196, 216, 46, 0.15) !important;
+    color: #1a4d6d !important;
+}
+
+/* Active tab button - lime green background with white text */
+ul.bg-base-100 li a.bg-white,
+ul.bg-base-100 li a[class*="bg-white"] {
+    background: linear-gradient(90deg, #c4d82e 0%, #b8cc2a 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Active tab button hover - slightly lighter */
+ul.bg-base-100 li a.bg-white:hover,
+ul.bg-base-100 li a[class*="bg-white"]:hover {
+    background: linear-gradient(90deg, #d0e038 0%, #c4d82e 100%) !important;
+    color: #ffffff !important;
+}
+
+/* Dark mode tabs */
+.dark ul.bg-base-100 {
+    background: linear-gradient(135deg, #1a4d6d 0%, #0d2d45 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark ul.bg-base-100 li a {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.dark ul.bg-base-100 li a:hover {
+    background: rgba(196, 216, 46, 0.2) !important;
+    color: #ffffff !important;
+}
+
+.dark ul.bg-base-100 li a.bg-white,
+.dark ul.bg-base-100 li a[class*="bg-white"] {
+    background: linear-gradient(90deg, #c4d82e 0%, #b8cc2a 100%) !important;
+    color: #ffffff !important;
+}
+
+
+/* ==================== FIELDSET SEPARATORS ==================== */
+
+/* Add visual separation between Sender and Recipient sections */
+.module h2:contains("Sender Information") + .module,
+fieldset.module h2 {
+    position: relative;
+}
+
+/* Style for Sender Information fieldset */
+fieldset.module:has(h2:contains("Sender")) {
+    background: rgba(26, 77, 109, 0.03) !important;
+    border-left: 4px solid #1a4d6d !important;
+    padding: 20px !important;
+    margin-bottom: 25px !important;
+    border-radius: 8px !important;
+}
+
+/* Style for Recipient Information fieldset */
+fieldset.module:has(h2:contains("Recipient")) {
+    background: rgba(196, 216, 46, 0.05) !important;
+    border-left: 4px solid #c4d82e !important;
+    padding: 20px !important;
+    margin-bottom: 25px !important;
+    border-radius: 8px !important;
+}
+
+/* Add icons to section headers */
+fieldset.module h2:contains("Sender")::before {
+    content: "📤 ";
+    margin-right: 8px;
+}
+
+fieldset.module h2:contains("Recipient")::before {
+    content: "📥 ";
+    margin-right: 8px;
+}
+
+/* Dark mode adjustments */
+.dark fieldset.module:has(h2:contains("Sender")) {
+    background: rgba(26, 77, 109, 0.15) !important;
+    border-left-color: #4a8db8 !important;
+}
+
+.dark fieldset.module:has(h2:contains("Recipient")) {
+    background: rgba(196, 216, 46, 0.1) !important;
+    border-left-color: #d0e038 !important;
+}
+
+/* Add spacing between form rows within sections */
+.form-row {
+    margin-bottom: 15px !important;
+}
+
+/* Make section headers more prominent */
+fieldset.module h2 {
+    font-size: 1.1em !important;
+    font-weight: 600 !important;
+    color: #1a4d6d !important;
+    margin-bottom: 15px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 2px solid rgba(26, 77, 109, 0.1) !important;
+}
+
+.dark fieldset.module h2 {
+    color: #c4d82e !important;
+    border-bottom-color: rgba(196, 216, 46, 0.2) !important;
+}
+
+/* ==================== AUTOFILL ANIMATION ==================== */
+
+/* Smooth transition for autofilled fields */
+input[type="text"],
+input[type="tel"],
+input[type="email"],
+textarea,
+select {
+    transition: background-color 0.3s ease, border-color 0.3s ease !important;
+}
+
+/* Autofill success state */
+.autofilled {
+    background-color: #d4edda !important;
+    border-color: #28a745 !important;
+    animation: autofillPulse 0.5s ease;
+}
+
+@keyframes autofillPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Loading state for fields being autofilled */
+.autofill-loading {
+    background: linear-gradient(90deg, #fffacd 0%, #fff9c4 50%, #fffacd 100%) !important;
+    background-size: 200% 100% !important;
+    animation: autofillLoading 1.5s ease infinite;
+}
+
+@keyframes autofillLoading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}

@@ -1,0 +1,813 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Scanner{% endblock %}
+{% block page_title %}Scanner{% endblock %}
+
+{% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+<style>
+    #reader { 
+        width: 100% !important; 
+        max-width: 400px;
+        margin: 0 auto;
+        border-radius: 8px; 
+    }
+    #reader video { 
+        border-radius: 8px; 
+        width: 100% !important; 
+        max-height: 300px;
+        object-fit: cover;
+    }
+    #barcode-reader { 
+        border-radius: 8px;
+        max-width: 400px;
+        margin: 0 auto;
+        height: 300px !important;
+    }
+    
+    /* Scanner overlay fix */
+    #reader__scan_region {
+        max-width: 400px !important;
+        margin: 0 auto !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Scanner Card - Compact Design -->
+<div class="card mb-6">
+    <div class="card-body p-4">
+        <!-- Mode Toggle -->
+        <div class="flex items-center justify-center gap-2 mb-4">
+            <button id="qrBtn" onclick="switchMode('qr')" class="flex-1 max-w-[120px] px-4 py-2 text-xs font-medium bg-black text-white rounded-md transition-all">
+                <svg class="w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                </svg>
+                QR
+            </button>
+            <button id="barcodeBtn" onclick="switchMode('barcode')" class="flex-1 max-w-[120px] px-4 py-2 text-xs font-medium text-black bg-gray-100 rounded-md transition-all">
+                <svg class="w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+                Barcode
+            </button>
+            <button id="manualBtn" onclick="switchMode('manual')" class="flex-1 max-w-[120px] px-4 py-2 text-xs font-medium text-black bg-gray-100 rounded-md transition-all">
+                <svg class="w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Manual
+            </button>
+        </div>
+
+        <!-- QR Scanner -->
+        <div id="qrScanner">
+            <div class="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                <div id="reader" class="bg-white rounded-lg"></div>
+            </div>
+            <button id="stopQR" onclick="stopAll()" class="w-full max-w-[400px] mx-auto block mt-3 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 hidden">
+                Stop Camera
+            </button>
+        </div>
+
+        <!-- Barcode Scanner -->
+        <div id="barcodeScanner" class="hidden">
+            <div class="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                <div id="barcode-reader" class="bg-white rounded-lg"></div>
+            </div>
+            <button id="stopBarcode" onclick="stopAll()" class="w-full max-w-[400px] mx-auto block mt-3 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 hidden">
+                Stop Camera
+            </button>
+        </div>
+
+        <!-- Manual Input -->
+        <div id="manualInput" class="hidden">
+            <div class="max-w-[400px] mx-auto">
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="awbInput"
+                        placeholder="Enter AWB Number"
+                        class="flex-1 form-input"
+                    >
+                    <button onclick="searchAwb()" class="btn btn-primary flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <span class="hidden sm:inline">Search</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shipment Details -->
+<div id="shipmentCard" class="hidden">
+    <div class="card mb-6">
+        <div class="card-header">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">AWB Number</p>
+                    <p class="text-lg font-semibold text-gray-900" id="awbNum"></p>
+                </div>
+                <span id="statusBadge" class="status-badge"></span>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Customer</p>
+                    <p class="font-medium text-gray-900" id="custName"></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Weight</p>
+                    <p class="font-medium text-gray-900" id="wgt"></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">From</p>
+                    <p class="font-medium text-gray-900 text-xs" id="sndr"></p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">To</p>
+                    <p class="font-medium text-gray-900 text-xs" id="rcpt"></p>
+                </div>
+            </div>
+            
+            <!-- Bag & Manifest Info -->
+            <div id="scanBagManifestInfo" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 hidden">
+                <div id="scanBagInfo" class="bg-blue-50 rounded-lg p-3 border border-blue-200 hidden">
+                    <p class="text-xs text-blue-600 font-semibold mb-1">📦 Bag</p>
+                    <p class="text-sm font-medium text-gray-900" id="scanBagNumber"></p>
+                    <p class="text-xs text-gray-600" id="scanBagStatus"></p>
+                </div>
+                <div id="scanManifestInfo" class="bg-purple-50 rounded-lg p-3 border border-purple-200 hidden">
+                    <p class="text-xs text-purple-600 font-semibold mb-1">✈️ Manifest</p>
+                    <p class="text-sm font-medium text-gray-900" id="scanManifestNumber"></p>
+                    <p class="text-xs text-gray-600" id="scanManifestFlight"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card mb-6">
+        <div class="card-header">
+            <h3 class="text-base font-semibold text-gray-900">Update Status</h3>
+        </div>
+        <div class="card-body">
+            <div id="actionBtns" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+        </div>
+    </div>
+
+    <!-- Tracking History -->
+    <div class="card mb-6">
+        <div class="card-header">
+            <h3 class="text-base font-semibold text-gray-900">Tracking History</h3>
+        </div>
+        <div class="card-body">
+            <div id="trackingHistory" class="space-y-3"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Bookings -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-900">Recent Bookings</h3>
+            <span class="text-xs text-gray-500">Last 10 shipments</span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if recent_scans %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for ship in recent_scans %}
+            <div onclick="quickLoad('{{ ship.awb_number }}')" class="group relative border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-md transition-all cursor-pointer bg-white">
+                <!-- Status Badge -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">AWB</p>
+                        <p class="text-sm font-semibold text-black group-hover:text-gray-700">{{ ship.awb_number }}</p>
+                    </div>
+                    <span class="status-badge status-{{ ship.current_status|lower }} text-xs">
+                        {{ ship.get_current_status_display|truncatewords:1 }}
+                    </span>
+                </div>
+                
+                <!-- Details -->
+                <div class="space-y-2 text-xs mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                        </svg>
+                        <span class="text-gray-600 truncate">{{ ship.get_direction_display|truncatewords:2 }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ ship.weight_estimated }} KG</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span class="text-gray-600 truncate">{{ ship.recipient_name }}</span>
+                    </div>
+                </div>
+                
+                <!-- View Action -->
+                <div class="flex items-center justify-end pt-3 border-t border-gray-100">
+                    <div class="flex items-center gap-1 text-gray-400 group-hover:text-black transition-colors">
+                        <span class="text-xs font-medium">View Details</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-gray-900 mb-1">No recent bookings</p>
+            <p class="text-xs text-gray-500">Scanned shipments will appear here</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Confirm Status Update</h3>
+            <p class="text-sm text-gray-600 mb-6">Are you sure you want to update the status to <span id="confirmStatus" class="font-semibold text-gray-900"></span>?</p>
+            <div class="flex gap-3">
+                <button onclick="hideModal('confirmModal')" class="flex-1 btn btn-secondary">
+                    Cancel
+                </button>
+                <button id="confirmBtn" class="flex-1 btn btn-primary">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delivery Proof Modal -->
+<div id="deliveryModal" class="modal">
+    <div class="modal-content">
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Delivery Proof</h3>
+        </div>
+        
+        <div class="p-6 space-y-4">
+            <!-- Shipment Info -->
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs text-gray-500">AWB Number</p>
+                <p class="text-sm font-semibold text-gray-900" id="deliveryAwb"></p>
+                <p class="text-xs text-gray-500 mt-2">Recipient</p>
+                <p class="text-sm font-medium text-gray-900" id="deliveryRecipient"></p>
+            </div>
+
+            <!-- Form -->
+            <div class="form-group">
+                <label class="form-label">Receiver Name *</label>
+                <input 
+                    type="text" 
+                    id="receiverName"
+                    placeholder="Who received the package?"
+                    class="form-input"
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Signature</label>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <canvas id="signatureCanvas" class="border border-gray-200 rounded mx-auto" width="300" height="150"></canvas>
+                    <button type="button" id="clearSignature" class="mt-2 text-xs text-gray-600 hover:text-gray-900">Clear Signature</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Notes</label>
+                <textarea 
+                    id="deliveryNotes"
+                    rows="3"
+                    placeholder="Any additional notes..."
+                    class="form-input"
+                ></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="hideModal('deliveryModal')" class="flex-1 btn btn-secondary">
+                    Cancel
+                </button>
+                <button id="submitDeliveryBtn" class="flex-1 btn btn-success">
+                    Submit Proof
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permission Request Modal -->
+<div id="permModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-6 text-center">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Camera Access Required</h3>
+            <p class="text-sm text-gray-600 mb-6">To scan QR codes and barcodes, please allow camera access when prompted by your browser.</p>
+            <button id="requestCameraBtn" class="w-full btn btn-primary mb-2">
+                Enable Camera
+            </button>
+            <button id="skipCameraBtn" class="w-full btn btn-secondary">
+                Use Manual Entry
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+let qrScanner = null;
+let scanning = false;
+let currentShipId = null;
+let pendingStatus = null;
+let pendingLabel = null;
+let currentShipmentData = null;
+const userRole = '{{ user_role }}';
+
+// Mode switching
+function switchMode(mode) {
+    stopAll();
+    
+    setTimeout(() => {
+        // Hide all modes
+        document.getElementById('qrScanner').classList.add('hidden');
+        document.getElementById('barcodeScanner').classList.add('hidden');
+        document.getElementById('manualInput').classList.add('hidden');
+        
+        // Update button styles
+        const baseClass = 'flex-1 max-w-[120px] px-4 py-2 text-xs font-medium text-black bg-gray-100 rounded-md transition-all';
+        const activeClass = 'flex-1 max-w-[120px] px-4 py-2 text-xs font-medium bg-black text-white rounded-md transition-all';
+        
+        document.getElementById('qrBtn').className = baseClass;
+        document.getElementById('barcodeBtn').className = baseClass;
+        document.getElementById('manualBtn').className = baseClass;
+        
+        // Show selected mode
+        if (mode === 'qr') {
+            document.getElementById('qrScanner').classList.remove('hidden');
+            document.getElementById('qrBtn').className = activeClass;
+            startQR();
+        } else if (mode === 'barcode') {
+            document.getElementById('barcodeScanner').classList.remove('hidden');
+            document.getElementById('barcodeBtn').className = activeClass;
+            startBarcode();
+        } else {
+            document.getElementById('manualInput').classList.remove('hidden');
+            document.getElementById('manualBtn').className = activeClass;
+            document.getElementById('awbInput').focus();
+        }
+    }, 200);
+}
+
+// QR Scanner
+async function startQR() {
+    if (scanning) return;
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } 
+        });
+        stream.getTracks().forEach(track => track.stop());
+        
+        scanning = true;
+        qrScanner = new Html5Qrcode("reader");
+        
+        await qrScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: 250 },
+            (decodedText) => {
+                loadShip(decodedText);
+                stopAll();
+            },
+            () => {}
+        );
+        
+        document.getElementById('stopQR').classList.remove('hidden');
+    } catch (err) {
+        scanning = false;
+        toast('Camera error. Using manual entry.');
+        setTimeout(() => switchMode('manual'), 2000);
+    }
+}
+
+// Barcode Scanner
+async function startBarcode() {
+    if (scanning) return;
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } 
+        });
+        stream.getTracks().forEach(track => track.stop());
+        
+        scanning = true;
+        
+        Quagga.init({
+            inputStream: {
+                type: "LiveStream",
+                target: document.querySelector('#barcode-reader'),
+                constraints: { facingMode: "environment" }
+            },
+            decoder: {
+                readers: ["code_128_reader", "ean_reader", "code_39_reader", "upc_reader"]
+            }
+        }, (err) => {
+            if (err) {
+                scanning = false;
+                toast('Barcode scanner error');
+                setTimeout(() => switchMode('qr'), 2000);
+                return;
+            }
+            Quagga.start();
+            document.getElementById('stopBarcode').classList.remove('hidden');
+        });
+        
+        Quagga.onDetected((result) => {
+            if (result && result.codeResult && result.codeResult.code) {
+                loadShip(result.codeResult.code);
+                stopAll();
+            }
+        });
+    } catch (err) {
+        scanning = false;
+        toast('Camera permission denied');
+        setTimeout(() => switchMode('manual'), 2000);
+    }
+}
+
+// Stop all scanners
+function stopAll() {
+    if (qrScanner && scanning) {
+        try {
+            qrScanner.stop().then(() => {
+                qrScanner.clear();
+                scanning = false;
+                document.getElementById('stopQR').classList.add('hidden');
+            }).catch(() => {
+                scanning = false;
+                document.getElementById('stopQR').classList.add('hidden');
+            });
+        } catch (err) {
+            scanning = false;
+            document.getElementById('stopQR').classList.add('hidden');
+        }
+    }
+    
+    try {
+        if (typeof Quagga !== 'undefined') {
+            Quagga.stop();
+        }
+    } catch (err) {}
+    
+    scanning = false;
+    document.getElementById('stopBarcode').classList.add('hidden');
+}
+
+// Manual search
+function searchAwb() {
+    const awb = document.getElementById('awbInput').value.trim();
+    if (awb) loadShip(awb);
+}
+
+document.getElementById('awbInput').onkeypress = e => {
+    if (e.key === 'Enter') searchAwb();
+};
+
+// Quick load
+function quickLoad(awb) { loadShip(awb); }
+
+// Load shipment
+function loadShip(awb) {
+    showLoading();
+    fetch(`/scan/${awb}/`)
+        .then(r => r.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) showShip(data);
+            else toast('Shipment not found');
+        })
+        .catch(() => { hideLoading(); toast('Error loading shipment'); });
+}
+
+// Show shipment
+function showShip(data) {
+    const s = data.shipment;
+    currentShipId = s.id;
+    currentShipmentData = s;
+
+    document.getElementById('awbNum').textContent = s.awb_number;
+    
+    let statusClass = 'status-pending';
+    if (s.current_status === 'BOOKED') statusClass = 'status-booked';
+    else if (s.current_status === 'DELIVERED' || s.current_status === 'DELIVERED_IN_HK') statusClass = 'status-delivered';
+    else if (s.current_status !== 'PENDING') statusClass = 'status-transit';
+    
+    const badge = document.getElementById('statusBadge');
+    badge.textContent = s.status_display;
+    badge.className = 'status-badge ' + statusClass;
+    
+    document.getElementById('custName').textContent = s.customer_name;
+    document.getElementById('wgt').textContent = s.weight + ' KG';
+    document.getElementById('sndr').textContent = s.sender_name;
+    document.getElementById('rcpt').textContent = s.recipient_name;
+    
+    // Show bag and manifest info if available
+    const scanBagManifestInfo = document.getElementById('scanBagManifestInfo');
+    const scanBagInfo = document.getElementById('scanBagInfo');
+    const scanManifestInfo = document.getElementById('scanManifestInfo');
+    
+    if (s.bag || s.manifest) {
+        scanBagManifestInfo.classList.remove('hidden');
+        
+        if (s.bag) {
+            scanBagInfo.classList.remove('hidden');
+            document.getElementById('scanBagNumber').textContent = s.bag.bag_number;
+            document.getElementById('scanBagStatus').textContent = `${s.bag.status} • ${s.bag.weight} KG`;
+        } else {
+            scanBagInfo.classList.add('hidden');
+        }
+        
+        if (s.manifest) {
+            scanManifestInfo.classList.remove('hidden');
+            document.getElementById('scanManifestNumber').textContent = s.manifest.manifest_number;
+            document.getElementById('scanManifestFlight').textContent = `${s.manifest.flight_number} • ${s.manifest.departure_date}`;
+        } else {
+            scanManifestInfo.classList.add('hidden');
+        }
+    } else {
+        scanBagManifestInfo.classList.add('hidden');
+    }
+
+    // Role-based buttons
+    const btns = getRoleButtons();
+    document.getElementById('actionBtns').innerHTML = btns.map(b => {
+        if (b.type === 'delivery') {
+            return `
+                <button onclick="showDeliveryModal()" class="group relative overflow-hidden bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-3">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span>${b.label}</span>
+                </button>
+            `;
+        } else {
+            return `
+                <button onclick="showConfirm('${b.status}', '${b.label}')" class="group relative overflow-hidden bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-4 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-3">
+                    ${b.icon}
+                    <span>${b.label}</span>
+                </button>
+            `;
+        }
+    }).join('');
+
+    // Tracking history
+    const history = data.tracking_history || [];
+    document.getElementById('trackingHistory').innerHTML = history.map(event => `
+        <div class="flex gap-3">
+            <div class="w-2 h-2 bg-black rounded-full mt-1.5 flex-shrink-0"></div>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900">${event.status}</p>
+                <p class="text-xs text-gray-500">${event.location} • ${event.timestamp}</p>
+                <p class="text-xs text-gray-600 mt-1">${event.description}</p>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('shipmentCard').classList.remove('hidden');
+}
+
+// Get role-based buttons
+function getRoleButtons() {
+    const buttons = [];
+    
+    // SVG Icons
+    const warehouseIcon = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+        </svg>
+    `;
+    
+    const airportIcon = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+        </svg>
+    `;
+    
+    const receivedIcon = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+    `;
+    
+    // BD group users: Show BD buttons only (NO "Received in HK")
+    if (userRole.includes('BD_') || userRole === 'DRIVER') {
+        buttons.push(
+            { status: 'RECEIVED_AT_BD', label: 'Received in BD Warehouse', icon: warehouseIcon },
+            { status: 'HANDED_TO_AIRLINE', label: 'Received in BD Airport', icon: airportIcon }
+        );
+        // BD users do NOT see Delivery Proof button
+    } 
+    // HK group users: Show HK buttons + Delivery Proof
+    else if (userRole.includes('HK_')) {
+        buttons.push(
+            { status: 'ARRIVED_AT_HK', label: 'Received in HK', icon: receivedIcon }
+        );
+        buttons.push({ type: 'delivery', label: 'Delivery Proof' });
+    } 
+    // Admin/Other users: Show all buttons
+    else {
+        buttons.push(
+            { status: 'RECEIVED_AT_BD', label: 'Received in BD Warehouse', icon: warehouseIcon },
+            { status: 'HANDED_TO_AIRLINE', label: 'Received in BD Airport', icon: airportIcon },
+            { status: 'ARRIVED_AT_HK', label: 'Received in HK', icon: receivedIcon }
+        );
+        buttons.push({ type: 'delivery', label: 'Delivery Proof' });
+    }
+    
+    return buttons;
+}
+
+// Delivery Proof Modal
+let canvas, ctx, isDrawing = false;
+
+function initSignatureCanvas() {
+    canvas = document.getElementById('signatureCanvas');
+    ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e.touches[0]); });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+    canvas.addEventListener('touchend', stopDrawing);
+}
+
+function startDrawing(e) {
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+}
+
+function stopDrawing() {
+    isDrawing = false;
+}
+
+document.getElementById('clearSignature').onclick = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
+
+function showDeliveryModal() {
+    if (!currentShipmentData) return;
+    document.getElementById('deliveryAwb').textContent = currentShipmentData.awb_number;
+    document.getElementById('deliveryRecipient').textContent = currentShipmentData.recipient_name;
+    document.getElementById('receiverName').value = currentShipmentData.recipient_name;
+    showModal('deliveryModal');
+    if (!canvas) initSignatureCanvas();
+}
+
+document.getElementById('submitDeliveryBtn').onclick = () => {
+    const receiverName = document.getElementById('receiverName').value.trim();
+    if (!receiverName) {
+        toast('Please enter receiver name');
+        return;
+    }
+
+    const signatureData = canvas.toDataURL();
+    const notes = document.getElementById('deliveryNotes').value.trim();
+
+    showLoading();
+    fetch(`/delivery-proof/${currentShipId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            receiver_name: receiverName,
+            signature: signatureData,
+            notes: notes
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            hideModal('deliveryModal');
+            toast('✓ Delivery proof submitted');
+            // Clear form
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('receiverName').value = '';
+            document.getElementById('deliveryNotes').value = '';
+            // Reload shipment details
+            setTimeout(() => loadShip(currentShipId), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    })
+    .catch(() => {
+        hideLoading();
+        toast('Submission failed');
+    });
+};
+
+// Show confirmation modal
+function showConfirm(status, label) {
+    pendingStatus = status;
+    pendingLabel = label;
+    document.getElementById('confirmStatus').textContent = label;
+    showModal('confirmModal');
+}
+
+document.getElementById('confirmBtn').onclick = () => {
+    hideModal('confirmModal');
+    updateStatus(pendingStatus, pendingLabel);
+};
+
+// Update status
+function updateStatus(status, label) {
+    showLoading();
+    fetch(`/update/${currentShipId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ status, location: 'Scanner', notes: '' })
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            toast('✓ Status updated successfully');
+            setTimeout(() => loadShip(currentShipId), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    })
+    .catch(() => { hideLoading(); toast('Update failed'); });
+}
+
+// Auto-start
+window.onload = () => {
+    if (!window.isSecureContext) {
+        toast('⚠️ Camera requires HTTPS');
+        switchMode('manual');
+        return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast('Camera not supported');
+        switchMode('manual');
+        return;
+    }
+
+    switchMode('qr');
+};
+
+window.onbeforeunload = () => stopAll();
+</script>
+{% endblock %}

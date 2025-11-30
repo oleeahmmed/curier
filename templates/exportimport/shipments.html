@@ -1,0 +1,655 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}All Shipments{% endblock %}
+{% block page_title %}All Shipments{% endblock %}
+
+{% block content %}
+<!-- Filters Card -->
+<div class="card mb-6">
+    <div class="card-body p-4">
+        <form method="GET" class="space-y-4">
+            <!-- Search and Quick Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <!-- Search -->
+                <div>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        value="{{ search }}"
+                        placeholder="Search AWB..."
+                        class="form-input text-sm"
+                    >
+                </div>
+                
+                <!-- Customer Filter -->
+                <div>
+                    <select name="customer" class="form-input text-sm">
+                        <option value="">All Customers</option>
+                        {% for customer in customers %}
+                        <option value="{{ customer.id }}" {% if selected_customer == customer.id|stringformat:"s" %}selected{% endif %}>
+                            {{ customer.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Status Filter -->
+                <div>
+                    <select name="status" class="form-input text-sm">
+                        <option value="">All Status</option>
+                        <option value="PENDING" {% if selected_status == 'PENDING' %}selected{% endif %}>Pending</option>
+                        <option value="BOOKED" {% if selected_status == 'BOOKED' %}selected{% endif %}>Booked</option>
+                        <option value="RECEIVED_AT_BD" {% if selected_status == 'RECEIVED_AT_BD' %}selected{% endif %}>Received at BD</option>
+                        <option value="ARRIVED_AT_HK" {% if selected_status == 'ARRIVED_AT_HK' %}selected{% endif %}>Arrived at HK</option>
+                        <option value="DELIVERED" {% if selected_status == 'DELIVERED' %}selected{% endif %}>Delivered</option>
+                        <option value="DELIVERED_IN_HK" {% if selected_status == 'DELIVERED_IN_HK' %}selected{% endif %}>Delivered in HK</option>
+                    </select>
+                </div>
+                
+                <!-- Search Button -->
+                <div>
+                    <button type="submit" class="w-full btn btn-primary flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <span>Search</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Date Range Filter -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">From Date</label>
+                    <input 
+                        type="date" 
+                        name="date_from" 
+                        value="{{ date_from }}"
+                        class="form-input text-sm"
+                    >
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">To Date</label>
+                    <input 
+                        type="date" 
+                        name="date_to" 
+                        value="{{ date_to }}"
+                        class="form-input text-sm"
+                    >
+                </div>
+                <div class="flex items-end">
+                    <a href="{% url 'all_shipments' %}" class="w-full btn btn-secondary text-sm">
+                        Clear Filters
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results Count -->
+<div class="mb-4">
+    <p class="text-sm text-gray-600">
+        Found <span class="font-semibold text-black">{{ shipments.count }}</span> shipment{{ shipments.count|pluralize }}
+    </p>
+</div>
+
+<!-- Shipments Grid -->
+<div class="card">
+    <div class="card-body">
+        {% if shipments %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for ship in shipments %}
+            <div onclick="loadShipmentDetails({{ ship.id }})" class="group relative border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-md transition-all cursor-pointer bg-white">
+                <!-- Status Badge -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">AWB</p>
+                        <p class="text-sm font-semibold text-black group-hover:text-gray-700">{{ ship.awb_number }}</p>
+                    </div>
+                    <span class="status-badge status-{{ ship.current_status|lower }} text-xs">
+                        {{ ship.get_current_status_display|truncatewords:1 }}
+                    </span>
+                </div>
+                
+                <!-- Details -->
+                <div class="space-y-2 text-xs mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                        </svg>
+                        <span class="text-gray-600 truncate">{{ ship.get_direction_display|truncatewords:2 }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ ship.weight_estimated }} KG</span>
+                    </div>
+                    {% if ship.customer %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                        <span class="text-gray-600 truncate">{{ ship.customer.name }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span class="text-gray-600 truncate">{{ ship.recipient_name }}</span>
+                    </div>
+                    {% if ship.bag %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <span class="text-blue-600 truncate font-medium">{{ ship.bag.bag_number }}</span>
+                    </div>
+                    {% endif %}
+                    {% if ship.bag.manifests.all %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span class="text-purple-600 truncate font-medium">{{ ship.bag.manifests.first.manifest_number }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- View Action -->
+                <div class="flex items-center justify-end pt-3 border-t border-gray-100">
+                    <div class="flex items-center gap-1 text-gray-400 group-hover:text-black transition-colors">
+                        <span class="text-xs font-medium">View & Update</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-gray-900 mb-1">No shipments found</p>
+            <p class="text-xs text-gray-500">Try adjusting your filters</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Shipment Details Modal -->
+<div id="shipmentModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <!-- Header with Close Button -->
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('shipmentModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Shipment Details</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="max-h-[85vh] overflow-y-auto">
+            <!-- Shipment Info Card -->
+            <div class="bg-white p-4 border-b border-gray-100">
+                <div class="text-center mb-4">
+                    <p class="text-xs text-gray-500 mb-1">AWB Number</p>
+                    <p class="text-xl font-bold text-gray-900" id="modalAwbNum"></p>
+                </div>
+                
+                <div class="flex items-center justify-center mb-4">
+                    <span id="modalStatusBadge" class="status-badge text-sm px-4 py-2"></span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 text-sm bg-gray-50 rounded-lg p-3">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Customer</p>
+                        <p class="font-medium text-gray-900 text-sm" id="modalCustName"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Weight</p>
+                        <p class="font-medium text-gray-900 text-sm" id="modalWgt"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">From</p>
+                        <p class="font-medium text-gray-900 text-xs truncate" id="modalSndr"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">To</p>
+                        <p class="font-medium text-gray-900 text-xs truncate" id="modalRcpt"></p>
+                    </div>
+                </div>
+                
+                <!-- Bag & Manifest Info -->
+                <div id="bagManifestInfo" class="mt-3 space-y-2 hidden">
+                    <div id="bagInfoSection" class="bg-blue-50 rounded-lg p-3 border border-blue-200 hidden">
+                        <p class="text-xs text-blue-600 font-semibold mb-1">📦 Bag Information</p>
+                        <p class="text-sm font-medium text-gray-900" id="modalBagNumber"></p>
+                        <p class="text-xs text-gray-600" id="modalBagStatus"></p>
+                    </div>
+                    <div id="manifestInfoSection" class="bg-purple-50 rounded-lg p-3 border border-purple-200 hidden">
+                        <p class="text-xs text-purple-600 font-semibold mb-1">✈️ Manifest Information</p>
+                        <p class="text-sm font-medium text-gray-900" id="modalManifestNumber"></p>
+                        <p class="text-xs text-gray-600" id="modalManifestFlight"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-white p-4 border-b border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Update Status</h3>
+                <div id="modalActionBtns" class="space-y-2"></div>
+            </div>
+
+            <!-- Tracking History -->
+            <div class="bg-white p-4">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Tracking History</h3>
+                <div id="modalTrackingHistory" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-5">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-black rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2">Confirm Status Update</h3>
+                <p class="text-sm text-gray-600">Are you sure you want to update the status to <span id="confirmStatus" class="font-semibold text-gray-900"></span>?</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideModal('confirmModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="confirmBtn" class="flex-1 btn btn-primary py-3">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delivery Proof Modal -->
+<div id="deliveryModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <!-- Header -->
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('deliveryModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Delivery Proof</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4 max-h-[85vh] overflow-y-auto">
+            <!-- Shipment Info -->
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs text-gray-500">AWB Number</p>
+                <p class="text-sm font-semibold text-gray-900" id="deliveryAwb"></p>
+                <p class="text-xs text-gray-500 mt-2">Recipient</p>
+                <p class="text-sm font-medium text-gray-900" id="deliveryRecipient"></p>
+            </div>
+
+            <!-- Form -->
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Receiver Name *</label>
+                <input 
+                    type="text" 
+                    id="receiverName"
+                    placeholder="Who received the package?"
+                    class="form-input"
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Signature</label>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white">
+                    <canvas id="signatureCanvas" class="border border-gray-200 rounded mx-auto touch-none" width="300" height="150"></canvas>
+                    <button type="button" id="clearSignature" class="mt-2 text-xs text-gray-600 hover:text-gray-900 font-medium">Clear Signature</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Notes</label>
+                <textarea 
+                    id="deliveryNotes"
+                    rows="3"
+                    placeholder="Any additional notes..."
+                    class="form-input"
+                ></textarea>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button onclick="hideModal('deliveryModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="submitDeliveryBtn" class="flex-1 btn btn-success py-3">
+                    Submit Proof
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+const userRole = '{{ user_role }}';
+let currentShipmentId = null;
+let currentShipmentData = null;
+let pendingStatus = null;
+let pendingLabel = null;
+let canvas, ctx, isDrawing = false;
+
+// Load shipment details by ID
+async function loadShipmentDetails(shipId) {
+    showLoading();
+    currentShipmentId = shipId;
+    
+    try {
+        const response = await fetch(`/scan/${shipId}/`);
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            displayShipmentDetails(data);
+            showModal('shipmentModal');
+        } else {
+            toast('Error loading shipment');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Display shipment details
+function displayShipmentDetails(data) {
+    const s = data.shipment;
+    currentShipmentData = s;
+    
+    document.getElementById('modalAwbNum').textContent = s.awb_number;
+    
+    let statusClass = 'status-pending';
+    if (s.current_status === 'BOOKED') statusClass = 'status-booked';
+    else if (s.current_status === 'DELIVERED' || s.current_status === 'DELIVERED_IN_HK') statusClass = 'status-delivered';
+    else if (s.current_status !== 'PENDING') statusClass = 'status-transit';
+    
+    const badge = document.getElementById('modalStatusBadge');
+    badge.textContent = s.status_display;
+    badge.className = 'status-badge ' + statusClass;
+    
+    document.getElementById('modalCustName').textContent = s.customer_name;
+    document.getElementById('modalWgt').textContent = s.weight + ' KG';
+    document.getElementById('modalSndr').textContent = s.sender_name;
+    document.getElementById('modalRcpt').textContent = s.recipient_name;
+    
+    // Show bag and manifest info if available
+    const bagManifestInfo = document.getElementById('bagManifestInfo');
+    const bagInfoSection = document.getElementById('bagInfoSection');
+    const manifestInfoSection = document.getElementById('manifestInfoSection');
+    
+    if (s.bag || s.manifest) {
+        bagManifestInfo.classList.remove('hidden');
+        
+        if (s.bag) {
+            bagInfoSection.classList.remove('hidden');
+            document.getElementById('modalBagNumber').textContent = s.bag.bag_number;
+            document.getElementById('modalBagStatus').textContent = `Status: ${s.bag.status} • Weight: ${s.bag.weight} KG`;
+        } else {
+            bagInfoSection.classList.add('hidden');
+        }
+        
+        if (s.manifest) {
+            manifestInfoSection.classList.remove('hidden');
+            document.getElementById('modalManifestNumber').textContent = s.manifest.manifest_number;
+            document.getElementById('modalManifestFlight').textContent = `Flight: ${s.manifest.flight_number} • ${s.manifest.departure_date} • ${s.manifest.status}`;
+        } else {
+            manifestInfoSection.classList.add('hidden');
+        }
+    } else {
+        bagManifestInfo.classList.add('hidden');
+    }
+
+    // Role-based buttons
+    const btns = getRoleButtons();
+    document.getElementById('modalActionBtns').innerHTML = btns.map(b => {
+        if (b.type === 'delivery') {
+            return `
+                <button onclick="showDeliveryModal()" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-start gap-3 text-left">
+                    <div class="w-10 h-10 bg-black text-white rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-sm font-semibold">${b.label}</span>
+                </button>
+            `;
+        } else {
+            return `
+                <button onclick="showConfirm('${b.status}', '${b.label}')" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-start gap-3 text-left group">
+                    <div class="w-10 h-10 bg-black group-hover:bg-white text-white group-hover:text-black rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                        ${b.icon}
+                    </div>
+                    <span class="text-sm font-semibold">${b.label}</span>
+                </button>
+            `;
+        }
+    }).join('');
+
+    // Tracking history
+    const history = data.tracking_history || [];
+    document.getElementById('modalTrackingHistory').innerHTML = history.length > 0 ? history.map(event => `
+        <div class="flex gap-3">
+            <div class="w-2 h-2 bg-black rounded-full mt-1.5 flex-shrink-0"></div>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900">${event.status}</p>
+                <p class="text-xs text-gray-500">${event.location} • ${event.timestamp}</p>
+                <p class="text-xs text-gray-600 mt-1">${event.description}</p>
+            </div>
+        </div>
+    `).join('') : '<p class="text-sm text-gray-500">No tracking history available</p>';
+}
+
+// Get role-based buttons
+function getRoleButtons() {
+    const buttons = [];
+    
+    const warehouseIcon = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+        </svg>
+    `;
+    
+    const airportIcon = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+        </svg>
+    `;
+    
+    const receivedIcon = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+    `;
+    
+    // BD group users: Show BD buttons only (NO "Received in HK")
+    if (userRole.includes('BD_') || userRole === 'DRIVER') {
+        buttons.push(
+            { status: 'RECEIVED_AT_BD', label: 'Received in BD Warehouse', icon: warehouseIcon },
+            { status: 'HANDED_TO_AIRLINE', label: 'Received in BD Airport', icon: airportIcon }
+        );
+        // BD users do NOT see Delivery Proof button
+    } 
+    // HK group users: Show HK buttons + Delivery Proof
+    else if (userRole.includes('HK_')) {
+        buttons.push(
+            { status: 'ARRIVED_AT_HK', label: 'Received in HK', icon: receivedIcon }
+        );
+        buttons.push({ type: 'delivery', label: 'Delivery Proof' });
+    } 
+    // Admin/Other users: Show all buttons
+    else {
+        buttons.push(
+            { status: 'RECEIVED_AT_BD', label: 'Received in BD Warehouse', icon: warehouseIcon },
+            { status: 'HANDED_TO_AIRLINE', label: 'Received in BD Airport', icon: airportIcon },
+            { status: 'ARRIVED_AT_HK', label: 'Received in HK', icon: receivedIcon }
+        );
+        buttons.push({ type: 'delivery', label: 'Delivery Proof' });
+    }
+    
+    return buttons;
+}
+
+// Delivery Proof Modal
+function initSignatureCanvas() {
+    canvas = document.getElementById('signatureCanvas');
+    ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e.touches[0]); });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+    canvas.addEventListener('touchend', stopDrawing);
+}
+
+function startDrawing(e) {
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+}
+
+function stopDrawing() {
+    isDrawing = false;
+}
+
+document.getElementById('clearSignature').onclick = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
+
+function showDeliveryModal() {
+    if (!currentShipmentData) return;
+    document.getElementById('deliveryAwb').textContent = currentShipmentData.awb_number;
+    document.getElementById('deliveryRecipient').textContent = currentShipmentData.recipient_name;
+    document.getElementById('receiverName').value = currentShipmentData.recipient_name;
+    showModal('deliveryModal');
+    if (!canvas) initSignatureCanvas();
+}
+
+document.getElementById('submitDeliveryBtn').onclick = () => {
+    const receiverName = document.getElementById('receiverName').value.trim();
+    if (!receiverName) {
+        toast('Please enter receiver name');
+        return;
+    }
+
+    const signatureData = canvas.toDataURL();
+    const notes = document.getElementById('deliveryNotes').value.trim();
+
+    showLoading();
+    fetch(`/delivery-proof/${currentShipmentId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            receiver_name: receiverName,
+            signature: signatureData,
+            notes: notes
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            hideModal('deliveryModal');
+            toast('✓ Delivery proof submitted');
+            // Clear signature canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('receiverName').value = '';
+            document.getElementById('deliveryNotes').value = '';
+            // Reload shipment details in modal
+            setTimeout(() => loadShipmentDetails(currentShipmentId), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    })
+    .catch(() => {
+        hideLoading();
+        toast('Submission failed');
+    });
+};
+
+// Show confirmation modal
+function showConfirm(status, label) {
+    pendingStatus = status;
+    pendingLabel = label;
+    document.getElementById('confirmStatus').textContent = label;
+    showModal('confirmModal');
+}
+
+document.getElementById('confirmBtn').onclick = () => {
+    hideModal('confirmModal');
+    updateStatus(pendingStatus, pendingLabel);
+};
+
+// Update status
+function updateStatus(status, label) {
+    showLoading();
+    fetch(`/update/${currentShipmentId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ status, location: 'Web', notes: '' })
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            toast('✓ Status updated successfully');
+            // Reload shipment details in modal
+            setTimeout(() => loadShipmentDetails(currentShipmentId), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    })
+    .catch(() => { hideLoading(); toast('Update failed'); });
+}
+</script>
+{% endblock %}

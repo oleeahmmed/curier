@@ -1,0 +1,293 @@
+{% extends "unfold/layouts/base.html" %}
+{% load i18n static unfold %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    <span class="separator">›</span>
+    <span>{% trans 'Task Report' %}</span>
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/print-js/1.6.0/print.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/print-js/1.6.0/print.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent">
+                {% trans "Task Report" %}
+            </h1>
+            <p class="mt-2 text-sm text-muted-foreground">{% trans "View and filter task records between dates" %}</p>
+        </div>
+        <button onclick="printReport()" type="button"
+            class="addlink bg-primary-600 flex items-center h-9 justify-center -my-1 rounded-full px-4 gap-2" title="{% trans 'Print' %}">
+            <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            <span class="text-white text-sm font-medium">{% trans "Print" %}</span>
+        </button>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="rounded-xl border bg-card text-card-foreground shadow-md hover:shadow-lg transition-shadow">
+        <div class="p-6 bg-gradient-to-br from-primary/5 to-transparent">
+            <form method="GET" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div class="space-y-2">
+                        <label for="id_from_date" class="text-sm font-medium leading-none">{% trans "From Date" %}</label>
+                        {{ form.from_date }}
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label for="id_to_date" class="text-sm font-medium leading-none">{% trans "To Date" %}</label>
+                        {{ form.to_date }}
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label for="id_project" class="text-sm font-medium leading-none">{% trans "Project" %}</label>
+                        {{ form.project }}
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="id_assigned_to" class="text-sm font-medium leading-none">{% trans "Assigned To" %}</label>
+                        {{ form.assigned_to }}
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="id_status" class="text-sm font-medium leading-none">{% trans "Status" %}</label>
+                        {{ form.status }}
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 pt-2">
+                    <button type="submit" class="addlink bg-primary-600 flex items-center h-9 justify-center -my-1 rounded-full px-4 gap-2" title="{% trans 'Filter' %}">
+                        <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        <span class="text-white text-sm font-medium">{% trans "Filter" %}</span>
+                    </button>
+                    <a href="{% url 'core:task-report' %}" class="addlink bg-primary-600 flex items-center h-9 justify-center -my-1 rounded-full px-4 gap-2" title="{% trans 'Reset' %}">
+                        <svg class="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span class="text-white text-sm font-medium">{% trans "Reset" %}</span>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="group rounded-xl border bg-gradient-to-br from-card to-card/50 text-card-foreground shadow-md hover:shadow-xl transition-all hover:scale-105 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">{% trans "Total Tasks" %}</p>
+                    <p class="text-3xl font-bold mt-2 bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent">{{ total_tasks }}</p>
+                </div>
+                <div class="p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl group-hover:scale-110 transition-transform">
+                    <svg class="w-7 h-7 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="group rounded-xl border bg-gradient-to-br from-green-50 to-card dark:from-green-950/20 dark:to-card text-card-foreground shadow-md hover:shadow-xl transition-all hover:scale-105 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">{% trans "Completed" %}</p>
+                    <p class="text-3xl font-bold mt-2 text-green-600 dark:text-green-400">{{ completed_count }}</p>
+                    <p class="text-xs text-muted-foreground mt-1 font-semibold">{{ completion_rate }}% complete</p>
+                </div>
+                <div class="p-3 bg-gradient-to-br from-green-200 to-green-100 dark:from-green-900/50 dark:to-green-900/30 rounded-xl group-hover:scale-110 transition-transform">
+                    <svg class="w-7 h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="group rounded-xl border bg-gradient-to-br from-blue-50 to-card dark:from-blue-950/20 dark:to-card text-card-foreground shadow-md hover:shadow-xl transition-all hover:scale-105 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">{% trans "In Progress" %}</p>
+                    <p class="text-3xl font-bold mt-2 text-blue-600 dark:text-blue-400">{{ in_progress_count }}</p>
+                </div>
+                <div class="p-3 bg-gradient-to-br from-blue-200 to-blue-100 dark:from-blue-900/50 dark:to-blue-900/30 rounded-xl group-hover:scale-110 transition-transform">
+                    <svg class="w-7 h-7 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="group rounded-xl border bg-gradient-to-br from-red-50 to-card dark:from-red-950/20 dark:to-card text-card-foreground shadow-md hover:shadow-xl transition-all hover:scale-105 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">{% trans "Overdue" %}</p>
+                    <p class="text-3xl font-bold mt-2 text-red-600 dark:text-red-400">{{ overdue_count }}</p>
+                </div>
+                <div class="p-3 bg-gradient-to-br from-red-200 to-red-100 dark:from-red-900/50 dark:to-red-900/30 rounded-xl group-hover:scale-110 transition-transform">
+                    <svg class="w-7 h-7 text-red-600 dark:text-red-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="rounded-xl border bg-card text-card-foreground shadow-md hover:shadow-lg transition-all p-5">
+            <p class="text-sm font-medium text-muted-foreground mb-1">{% trans "To Do" %}</p>
+            <p class="text-2xl font-bold">{{ todo_count }}</p>
+        </div>
+        <div class="rounded-xl border bg-gradient-to-br from-yellow-50 to-card dark:from-yellow-950/20 dark:to-card text-card-foreground shadow-md hover:shadow-lg transition-all p-5">
+            <p class="text-sm font-medium text-muted-foreground mb-1">{% trans "Blocked" %}</p>
+            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ blocked_count }}</p>
+        </div>
+        <div class="rounded-xl border bg-card text-card-foreground shadow-md hover:shadow-lg transition-all p-5">
+            <p class="text-sm font-medium text-muted-foreground mb-1">{% trans "Estimated Hours" %}</p>
+            <p class="text-2xl font-bold">{{ total_estimated_hours }}h</p>
+        </div>
+        <div class="rounded-xl border bg-card text-card-foreground shadow-md hover:shadow-lg transition-all p-5">
+            <p class="text-sm font-medium text-muted-foreground mb-1">{% trans "Actual Hours" %}</p>
+            <p class="text-2xl font-bold">{{ total_actual_hours }}h</p>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <div id="printable-area" class="rounded-xl border bg-card text-card-foreground shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+        {% if tasks %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-muted/50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Project" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Task" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Assigned To" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Status" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Priority" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Due Date" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Est. Hours" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Actual Hours" %}</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {% trans "Created" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr class="border-t border-border hover:bg-muted/50 transition-colors">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">{{ task.project.name }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <div class="font-medium">{{ task.title }}</div>
+                            {% if task.is_overdue %}
+                            <span class="text-xs text-red-600 dark:text-red-400">{% trans "Overdue" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">
+                            {{ task.assigned_to.username|default:"-" }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {% if task.status == 'completed' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                {% trans "Completed" %}
+                            </span>
+                            {% elif task.status == 'in_progress' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                {% trans "In Progress" %}
+                            </span>
+                            {% elif task.status == 'blocked' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                {% trans "Blocked" %}
+                            </span>
+                            {% elif task.status == 'todo' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                                {% trans "To Do" %}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                                {{ task.get_status_display }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            {% if task.priority == 'critical' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                {% trans "Critical" %}
+                            </span>
+                            {% elif task.priority == 'high' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                                {% trans "High" %}
+                            </span>
+                            {% elif task.priority == 'medium' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                {% trans "Medium" %}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                                {% trans "Low" %}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">{{ task.due_date|date:"d M, Y" }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">{{ task.estimated_hours }}h</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">{{ task.actual_hours }}h</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm">{{ task.created_at|date:"d M, Y" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center">
+            <svg class="mx-auto h-12 w-12 text-muted-foreground mb-4" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <p class="text-muted-foreground text-sm">{% trans "No tasks found for the selected criteria." %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function printReport() {
+        printJS({
+            printable: 'printable-area',
+            type: 'html',
+            header: '<div style="text-align: center; margin-bottom: 20px;"><h1 style="margin: 0; font-size: 24px; font-weight: bold;">Task Management Report</h1><h2 style="margin: 5px 0; font-size: 18px;">Task Status Report</h2><p style="margin: 0; font-size: 14px;">Generated: ' + new Date().toLocaleDateString() + '</p></div>',
+            style: `
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; }
+            th { background-color: #f3f4f6; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+        `,
+            scanStyles: false
+        });
+    }
+</script>
+{% endblock %}

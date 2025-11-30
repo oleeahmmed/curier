@@ -1,0 +1,648 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}My Parcels{% endblock %}
+{% block page_title %}My Parcels{% endblock %}
+
+{% block header_actions %}
+<button onclick="showModal('createModal')" class="btn btn-primary">
+    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+    </svg>
+    New Parcel
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase">Total</p>
+                    <p class="text-2xl font-bold text-black mt-1">{{ parcels.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase">Pending</p>
+                    <p class="text-2xl font-bold text-black mt-1">{% for p in parcels %}{% if p.current_status == 'PENDING' %}{{ forloop.counter }}{% endif %}{% endfor %}</p>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase">Booked</p>
+                    <p class="text-2xl font-bold text-black mt-1">{% for p in parcels %}{% if p.current_status == 'BOOKED' %}{{ forloop.counter }}{% endif %}{% endfor %}</p>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase">In Transit</p>
+                    <p class="text-2xl font-bold text-black mt-1">{% for p in parcels %}{% if p.current_status != 'PENDING' and p.current_status != 'BOOKED' and p.current_status != 'DELIVERED' and p.current_status != 'DELIVERED_IN_HK' %}{{ forloop.counter }}{% endif %}{% endfor %}</p>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Parcels List -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold text-gray-900">All Parcels</h2>
+            <div class="flex items-center space-x-2">
+                <button onclick="setView('grid')" id="gridBtn" class="p-2 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                </button>
+                <button onclick="setView('list')" id="listBtn" class="p-2 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-body">
+        <!-- Grid View -->
+        <div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for parcel in parcels %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer" onclick="viewParcel({{ parcel.id }})">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">AWB Number</p>
+                        <p class="text-sm font-semibold text-gray-900">{{ parcel.awb_number }}</p>
+                    </div>
+                    <span class="status-badge status-{{ parcel.current_status|lower }}">
+                        {{ parcel.get_current_status_display }}
+                    </span>
+                </div>
+                
+                <div class="space-y-2 text-xs mb-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Direction</span>
+                        <span class="font-medium text-gray-900">{{ parcel.get_direction_display|truncatewords:3 }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Weight</span>
+                        <span class="font-medium text-gray-900">{{ parcel.weight_estimated }} KG</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">To</span>
+                        <span class="font-medium text-gray-900 truncate ml-2">{{ parcel.recipient_name }}</span>
+                    </div>
+                </div>
+                
+                {% if parcel.current_status == 'PENDING' %}
+                <div class="flex gap-2 pt-3 border-t border-gray-100">
+                    <button onclick="event.stopPropagation(); editParcel({{ parcel.id }})" class="flex-1 py-1.5 text-xs font-medium text-black bg-gray-100 rounded-md hover:bg-gray-200">
+                        Edit
+                    </button>
+                    <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="flex-1 py-1.5 text-xs font-medium text-black bg-gray-100 rounded-md hover:bg-gray-200">
+                        Delete
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="col-span-full text-center py-12">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+                <p class="text-gray-500 mb-4">No parcels yet</p>
+                <button onclick="showModal('createModal')" class="btn btn-primary">
+                    Create Your First Parcel
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- List View -->
+        <div id="listView" class="hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">AWB</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Direction</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weight</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for parcel in parcels %}
+                        <tr class="hover:bg-gray-50 cursor-pointer" onclick="viewParcel({{ parcel.id }})">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ parcel.awb_number }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ parcel.get_direction_display }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ parcel.recipient_name }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ parcel.weight_estimated }} KG</td>
+                            <td class="px-4 py-3">
+                                <span class="status-badge status-{{ parcel.current_status|lower }}">
+                                    {{ parcel.get_current_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex gap-2">
+                                    {% if parcel.current_status == 'PENDING' %}
+                                    <button onclick="event.stopPropagation(); editParcel({{ parcel.id }})" class="text-xs text-black hover:text-gray-600 font-medium">Edit</button>
+                                    <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="text-xs text-black hover:text-gray-600 font-medium">Delete</button>
+                                    {% else %}
+                                    <button onclick="event.stopPropagation(); viewParcel({{ parcel.id }})" class="text-xs text-black hover:text-gray-600 font-medium">View</button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-4 py-12 text-center text-gray-500">No parcels yet</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Create/Edit Modal -->
+<div id="createModal" class="modal">
+    <div class="modal-content">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900" id="modalTitle">New Parcel</h3>
+                <button onclick="hideModal('createModal')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <form id="parcelForm" class="p-6 space-y-4">
+            <input type="hidden" id="parcelId">
+            
+            <div class="form-group">
+                <label class="form-label">Direction *</label>
+                <select id="direction" required class="form-input">
+                    <option value="">Select Direction</option>
+                    <option value="BD_TO_HK">Bangladesh → Hong Kong</option>
+                    <option value="HK_TO_BD">Hong Kong → Bangladesh</option>
+                </select>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label class="form-label">Declared Value *</label>
+                    <input type="number" id="declaredValue" step="0.01" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Currency</label>
+                    <select id="declaredCurrency" class="form-input">
+                        <option value="USD">USD</option>
+                        <option value="HKD">HKD</option>
+                        <option value="BDT">BDT</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Weight (KG) *</label>
+                <input type="number" id="weight" step="0.01" required class="form-input">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Contents *</label>
+                <textarea id="contents" rows="2" required class="form-input"></textarea>
+            </div>
+            
+            <div class="border-t pt-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h4>
+                <div class="space-y-3">
+                    <input type="text" id="senderName" placeholder="Sender Name *" required class="form-input">
+                    <input type="tel" id="senderPhone" placeholder="Sender Phone *" required class="form-input">
+                    <textarea id="senderAddress" rows="2" placeholder="Sender Address *" required class="form-input"></textarea>
+                </div>
+            </div>
+            
+            <div class="border-t pt-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Recipient Information</h4>
+                <div class="space-y-3">
+                    <input type="text" id="recipientName" placeholder="Recipient Name *" required class="form-input">
+                    <input type="tel" id="recipientPhone" placeholder="Recipient Phone *" required class="form-input">
+                    <textarea id="recipientAddress" rows="2" placeholder="Recipient Address *" required class="form-input"></textarea>
+                </div>
+            </div>
+            
+            <div class="border-t pt-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Additional Options</h4>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="isFragile" class="mr-2 rounded">
+                        <span class="text-sm text-gray-700">Fragile Item</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="isLiquid" class="mr-2 rounded">
+                        <span class="text-sm text-gray-700">Contains Liquid</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="isCod" class="mr-2 rounded">
+                        <span class="text-sm text-gray-700">Cash on Delivery</span>
+                    </label>
+                </div>
+                <div id="codAmountDiv" class="mt-3 hidden">
+                    <label class="form-label">COD Amount</label>
+                    <input type="number" id="codAmount" step="0.01" class="form-input">
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Special Instructions</label>
+                    <textarea id="specialInstructions" rows="2" class="form-input"></textarea>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="hideModal('createModal')" class="flex-1 btn btn-secondary">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 btn btn-primary">
+                    Save Parcel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- View Details Modal -->
+<div id="viewModal" class="modal">
+    <div class="modal-content">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Parcel Details</h3>
+                <button onclick="hideModal('viewModal')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="viewContent" class="p-6"></div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mx-auto mb-4">
+                <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">Delete Parcel</h3>
+            <p class="text-sm text-gray-600 text-center mb-6">
+                Are you sure you want to delete parcel <span id="deleteAwb" class="font-semibold text-gray-900"></span>? This action cannot be undone.
+            </p>
+            <div class="flex gap-3">
+                <button onclick="hideModal('deleteModal')" class="flex-1 btn btn-secondary">
+                    Cancel
+                </button>
+                <button id="confirmDeleteBtn" class="flex-1 btn btn-danger">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+let currentParcelId = null;
+let deleteParcelId = null;
+let currentView = 'grid';
+
+// View Toggle
+function setView(view) {
+    currentView = view;
+    const gridView = document.getElementById('gridView');
+    const listView = document.getElementById('listView');
+    const gridBtn = document.getElementById('gridBtn');
+    const listBtn = document.getElementById('listBtn');
+    
+    if (view === 'grid') {
+        gridView.classList.remove('hidden');
+        listView.classList.add('hidden');
+        gridBtn.classList.add('bg-gray-100');
+        listBtn.classList.remove('bg-gray-100');
+    } else {
+        gridView.classList.add('hidden');
+        listView.classList.remove('hidden');
+        listBtn.classList.add('bg-gray-100');
+        gridBtn.classList.remove('bg-gray-100');
+    }
+}
+
+// COD Toggle
+document.getElementById('isCod').onchange = (e) => {
+    document.getElementById('codAmountDiv').classList.toggle('hidden', !e.target.checked);
+};
+
+// Submit Form
+document.getElementById('parcelForm').onsubmit = async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        direction: document.getElementById('direction').value,
+        declared_value: document.getElementById('declaredValue').value,
+        declared_currency: document.getElementById('declaredCurrency').value,
+        weight_estimated: document.getElementById('weight').value,
+        contents: document.getElementById('contents').value,
+        sender_name: document.getElementById('senderName').value,
+        sender_phone: document.getElementById('senderPhone').value,
+        sender_address: document.getElementById('senderAddress').value,
+        recipient_name: document.getElementById('recipientName').value,
+        recipient_phone: document.getElementById('recipientPhone').value,
+        recipient_address: document.getElementById('recipientAddress').value,
+        is_fragile: document.getElementById('isFragile').checked,
+        is_liquid: document.getElementById('isLiquid').checked,
+        is_cod: document.getElementById('isCod').checked,
+        cod_amount: document.getElementById('codAmount').value || null,
+        special_instructions: document.getElementById('specialInstructions').value,
+    };
+    
+    showLoading();
+    
+    try {
+        const url = currentParcelId ? `/parcels/${currentParcelId}/update/` : '/parcels/create/';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        hideLoading();
+        
+        if (result.success) {
+            toast(result.message);
+            hideModal('createModal');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + result.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+};
+
+// Edit Parcel
+async function editParcel(id) {
+    currentParcelId = id;
+    showLoading();
+    
+    try {
+        const response = await fetch(`/parcels/${id}/`);
+        const result = await response.json();
+        hideLoading();
+        
+        if (result.success) {
+            const p = result.parcel;
+            document.getElementById('modalTitle').textContent = 'Edit Parcel';
+            document.getElementById('direction').value = p.direction;
+            document.getElementById('declaredValue').value = p.declared_value;
+            document.getElementById('declaredCurrency').value = p.declared_currency;
+            document.getElementById('weight').value = p.weight_estimated;
+            document.getElementById('contents').value = p.contents;
+            document.getElementById('senderName').value = p.sender_name;
+            document.getElementById('senderPhone').value = p.sender_phone;
+            document.getElementById('senderAddress').value = p.sender_address;
+            document.getElementById('recipientName').value = p.recipient_name;
+            document.getElementById('recipientPhone').value = p.recipient_phone;
+            document.getElementById('recipientAddress').value = p.recipient_address;
+            document.getElementById('isFragile').checked = p.is_fragile;
+            document.getElementById('isLiquid').checked = p.is_liquid;
+            document.getElementById('isCod').checked = p.is_cod;
+            document.getElementById('codAmount').value = p.cod_amount || '';
+            document.getElementById('specialInstructions').value = p.special_instructions || '';
+            
+            if (p.is_cod) {
+                document.getElementById('codAmountDiv').classList.remove('hidden');
+            }
+            
+            showModal('createModal');
+        } else {
+            toast('Error loading parcel');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// View Parcel
+async function viewParcel(id) {
+    showLoading();
+    
+    try {
+        const response = await fetch(`/parcels/${id}/`);
+        const result = await response.json();
+        hideLoading();
+        
+        if (result.success) {
+            const p = result.parcel;
+            
+            let statusClass = 'status-pending';
+            if (p.current_status === 'BOOKED') statusClass = 'status-booked';
+            else if (p.current_status === 'DELIVERED' || p.current_status === 'DELIVERED_IN_HK') statusClass = 'status-delivered';
+            else if (p.current_status !== 'PENDING') statusClass = 'status-transit';
+            
+            let html = `
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="text-xs text-gray-500">AWB Number</p>
+                                <p class="text-lg font-semibold text-gray-900">${p.awb_number}</p>
+                            </div>
+                            <span class="status-badge ${statusClass}">
+                                ${p.status_display}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Direction</p>
+                            <p class="font-medium text-gray-900">${p.direction_display}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Weight</p>
+                            <p class="font-medium text-gray-900">${p.weight_estimated} KG</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Declared Value</p>
+                            <p class="font-medium text-gray-900">${p.declared_value} ${p.declared_currency}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Contents</p>
+                            <p class="font-medium text-gray-900">${p.contents}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender</h4>
+                        <div class="text-sm space-y-1">
+                            <p><span class="text-gray-500">Name:</span> <span class="font-medium">${p.sender_name}</span></p>
+                            <p><span class="text-gray-500">Phone:</span> <span class="font-medium">${p.sender_phone}</span></p>
+                            <p><span class="text-gray-500">Address:</span> <span class="font-medium">${p.sender_address}</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-semibold text-gray-900 mb-3">Recipient</h4>
+                        <div class="text-sm space-y-1">
+                            <p><span class="text-gray-500">Name:</span> <span class="font-medium">${p.recipient_name}</span></p>
+                            <p><span class="text-gray-500">Phone:</span> <span class="font-medium">${p.recipient_phone}</span></p>
+                            <p><span class="text-gray-500">Address:</span> <span class="font-medium">${p.recipient_address}</span></p>
+                        </div>
+                    </div>
+            `;
+            
+            if (p.current_status === 'BOOKED' && p.qr_code && p.barcode) {
+                html += `
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-semibold text-gray-900 mb-3">Codes</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="text-center">
+                                <p class="text-xs text-gray-500 mb-2">QR Code</p>
+                                <img src="${p.qr_code}" alt="QR Code" class="mx-auto border border-gray-200 rounded p-2 bg-white">
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-gray-500 mb-2">Barcode</p>
+                                <img src="${p.barcode}" alt="Barcode" class="mx-auto border border-gray-200 rounded p-2 bg-white">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (result.tracking_history && result.tracking_history.length > 0) {
+                html += `
+                    <div class="border-t pt-4">
+                        <h4 class="text-sm font-semibold text-gray-900 mb-3">Tracking History</h4>
+                        <div class="space-y-3">
+                `;
+                result.tracking_history.forEach(event => {
+                    html += `
+                        <div class="flex gap-3">
+                            <div class="w-2 h-2 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-900">${event.status}</p>
+                                <p class="text-xs text-gray-500">${event.location} • ${event.timestamp}</p>
+                                <p class="text-xs text-gray-600 mt-1">${event.description}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+            
+            html += `</div>`;
+            
+            document.getElementById('viewContent').innerHTML = html;
+            showModal('viewModal');
+        } else {
+            toast('Error loading parcel');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Delete Parcel
+function deleteParcel(id, awb) {
+    deleteParcelId = id;
+    document.getElementById('deleteAwb').textContent = awb;
+    showModal('deleteModal');
+}
+
+document.getElementById('confirmDeleteBtn').onclick = async () => {
+    showLoading();
+    
+    try {
+        const response = await fetch(`/parcels/${deleteParcelId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const result = await response.json();
+        hideLoading();
+        
+        if (result.success) {
+            toast(result.message);
+            hideModal('deleteModal');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + result.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+};
+
+// Reset form when opening create modal
+document.querySelector('[onclick="showModal(\'createModal\')"]').addEventListener('click', () => {
+    currentParcelId = null;
+    document.getElementById('modalTitle').textContent = 'New Parcel';
+    document.getElementById('parcelForm').reset();
+});
+</script>
+{% endblock %}

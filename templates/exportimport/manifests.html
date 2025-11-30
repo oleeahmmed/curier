@@ -1,0 +1,663 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Manifest Management{% endblock %}
+{% block page_title %}Manifest Management{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Total Manifests</p>
+            <p class="text-2xl font-bold text-gray-900">{{ total_manifests }}</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Draft</p>
+            <p class="text-2xl font-bold text-yellow-600">{{ draft_manifests }}</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Finalized</p>
+            <p class="text-2xl font-bold text-green-600">{{ finalized_manifests }}</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Departed</p>
+            <p class="text-2xl font-bold text-blue-600">{{ departed_manifests }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="card mb-6">
+    <div class="card-body p-4">
+        <form method="GET" class="space-y-4">
+            <!-- Search and Quick Filters -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- Search -->
+                <div>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        value="{{ search }}"
+                        placeholder="Search manifest..."
+                        class="form-input text-sm"
+                    >
+                </div>
+                
+                <!-- Status Filter -->
+                <div>
+                    <select name="status" class="form-input text-sm">
+                        <option value="">All Status</option>
+                        <option value="DRAFT" {% if selected_status == 'DRAFT' %}selected{% endif %}>Draft</option>
+                        <option value="FINALIZED" {% if selected_status == 'FINALIZED' %}selected{% endif %}>Finalized</option>
+                        <option value="DEPARTED" {% if selected_status == 'DEPARTED' %}selected{% endif %}>Departed</option>
+                        <option value="ARRIVED" {% if selected_status == 'ARRIVED' %}selected{% endif %}>Arrived</option>
+                    </select>
+                </div>
+                
+                <!-- Search Button -->
+                <div>
+                    <button type="submit" class="w-full btn btn-primary flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <span>Search</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Date Range Filter -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">From Date</label>
+                    <input 
+                        type="date" 
+                        name="date_from" 
+                        value="{{ date_from }}"
+                        class="form-input text-sm"
+                    >
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">To Date</label>
+                    <input 
+                        type="date" 
+                        name="date_to" 
+                        value="{{ date_to }}"
+                        class="form-input text-sm"
+                    >
+                </div>
+                <div class="flex items-end">
+                    <a href="{% url 'manifests' %}" class="w-full btn btn-secondary text-sm">
+                        Clear Filters
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create Button & Results Count -->
+<div class="flex items-center justify-between mb-4">
+    <p class="text-sm text-gray-600">
+        Found <span class="font-semibold text-black">{{ manifests.count }}</span> manifest{{ manifests.count|pluralize }}
+    </p>
+    <button onclick="showCreateModal()" class="btn btn-primary flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Create Manifest</span>
+    </button>
+</div>
+
+<!-- Manifests Grid -->
+<div class="card">
+    <div class="card-body">
+        {% if manifests %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for manifest in manifests %}
+            <div onclick="viewManifestDetails({{ manifest.id }})" class="group relative border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-md transition-all cursor-pointer bg-white">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">Manifest</p>
+                        <p class="text-sm font-semibold text-black">{{ manifest.manifest_number }}</p>
+                    </div>
+                    <span class="status-badge {% if manifest.status == 'DRAFT' %}status-pending{% elif manifest.status == 'FINALIZED' %}status-booked{% elif manifest.status == 'DEPARTED' %}status-transit{% else %}status-delivered{% endif %} text-xs">
+                        {{ manifest.get_status_display }}
+                    </span>
+                </div>
+                
+                <div class="space-y-2 text-xs mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ manifest.flight_number }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ manifest.departure_date|date:"M d, Y" }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ manifest.total_bags }} Bags • {{ manifest.total_weight }} KG</span>
+                    </div>
+                    {% if manifest.bags.all %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <span class="text-blue-600 truncate font-medium">
+                            {% for bag in manifest.bags.all|slice:":2" %}
+                                {{ bag.bag_number }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                            {% if manifest.bags.count > 2 %}...{% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% with first_bag=manifest.bags.first %}
+                    {% if first_bag.shipment %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <span class="text-green-600 truncate font-medium">{{ first_bag.shipment.awb_number }}{% if manifest.bags.count > 1 %} +{{ manifest.bags.count|add:"-1" }}{% endif %}</span>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                
+                <div class="flex items-center justify-end pt-3 border-t border-gray-100">
+                    <div class="flex items-center gap-1 text-gray-400 group-hover:text-black transition-colors">
+                        <span class="text-xs font-medium">View Details</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-gray-900 mb-1">No manifests found</p>
+            <p class="text-xs text-gray-500 mb-4">Create your first manifest</p>
+            <button onclick="showCreateModal()" class="btn btn-primary">
+                Create Manifest
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create/Edit Manifest Modal -->
+<div id="manifestModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('manifestModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900" id="modalTitle">Create Manifest</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+            <input type="hidden" id="manifestId" value="">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label class="form-label text-sm font-medium">Flight Number *</label>
+                    <input type="text" id="flightNumber" class="form-input" placeholder="e.g., BG123">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label text-sm font-medium">MAWB Number</label>
+                    <input type="text" id="mawbNumber" class="form-input" placeholder="Master AWB">
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label class="form-label text-sm font-medium">Departure Date *</label>
+                    <input type="date" id="departureDate" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label text-sm font-medium">Departure Time *</label>
+                    <input type="time" id="departureTime" class="form-input">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Airline Reference</label>
+                <input type="text" id="airlineReference" class="form-input" placeholder="Optional">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Select Bags *</label>
+                <div class="border border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto">
+                    {% for bag in available_bags %}
+                    <label class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <input type="checkbox" name="bag_ids" value="{{ bag.id }}" class="w-4 h-4">
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">{{ bag.bag_number }}</p>
+                            <p class="text-xs text-gray-600">
+                                {% if bag.shipment %}{{ bag.shipment.awb_number }} • {% endif %}{{ bag.weight }} KG
+                            </p>
+                        </div>
+                    </label>
+                    {% empty %}
+                    <p class="text-sm text-gray-500 text-center py-4">No sealed bags available</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="flex gap-3 pt-2">
+                <button onclick="hideModal('manifestModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button onclick="saveManifest()" class="flex-1 btn btn-primary py-3" id="saveBtn">
+                    Create Manifest
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Manifest Details Modal -->
+<div id="viewManifestModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('viewManifestModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Manifest Details</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="max-h-[85vh] overflow-y-auto">
+            <!-- Manifest Info -->
+            <div class="bg-white p-4 border-b border-gray-100">
+                <div class="text-center mb-4">
+                    <p class="text-xs text-gray-500 mb-1">Manifest Number</p>
+                    <p class="text-xl font-bold text-gray-900" id="viewManifestNumber"></p>
+                </div>
+                
+                <div class="flex items-center justify-center mb-4">
+                    <span id="viewManifestStatus" class="status-badge text-sm px-4 py-2"></span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 text-sm bg-gray-50 rounded-lg p-3">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Flight</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewFlight"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Departure</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewDeparture"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Total Bags</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewTotalBags"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Total Weight</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewTotalWeight"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-white p-4 border-b border-gray-100" id="manifestActions">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Actions</h3>
+                <div id="actionButtons" class="space-y-2"></div>
+            </div>
+
+            <!-- Bags List -->
+            <div class="bg-white p-4">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Bags in Manifest</h3>
+                <div id="bagsList" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-5">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-black rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2" id="confirmTitle">Confirm Action</h3>
+                <p class="text-sm text-gray-600" id="confirmMessage"></p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideModal('confirmModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="confirmBtn" class="flex-1 btn btn-primary py-3">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentManifestId = null;
+let pendingAction = null;
+
+// Show create modal
+function showCreateModal() {
+    document.getElementById('modalTitle').textContent = 'Create Manifest';
+    document.getElementById('manifestId').value = '';
+    document.getElementById('flightNumber').value = '';
+    document.getElementById('mawbNumber').value = '';
+    document.getElementById('departureDate').value = '';
+    document.getElementById('departureTime').value = '';
+    document.getElementById('airlineReference').value = '';
+    document.querySelectorAll('input[name="bag_ids"]').forEach(cb => cb.checked = false);
+    document.getElementById('saveBtn').textContent = 'Create Manifest';
+    showModal('manifestModal');
+}
+
+// Save manifest (create or update)
+async function saveManifest() {
+    const manifestId = document.getElementById('manifestId').value;
+    const flightNumber = document.getElementById('flightNumber').value.trim();
+    const departureDate = document.getElementById('departureDate').value;
+    const departureTime = document.getElementById('departureTime').value;
+    
+    if (!flightNumber || !departureDate || !departureTime) {
+        toast('Please fill all required fields');
+        return;
+    }
+    
+    const bagIds = Array.from(document.querySelectorAll('input[name="bag_ids"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    if (bagIds.length === 0) {
+        toast('Please select at least one bag');
+        return;
+    }
+    
+    const data = {
+        flight_number: flightNumber,
+        departure_date: departureDate,
+        departure_time: departureTime,
+        mawb_number: document.getElementById('mawbNumber').value.trim(),
+        airline_reference: document.getElementById('airlineReference').value.trim(),
+        bag_ids: bagIds
+    };
+    
+    const url = manifestId ? `/manifests/${manifestId}/update/` : '/manifests/create/';
+    
+    showLoading();
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        hideLoading();
+        
+        if (result.success) {
+            hideModal('manifestModal');
+            toast('✓ ' + result.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + result.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// View manifest details
+async function viewManifestDetails(manifestId) {
+    showLoading();
+    currentManifestId = manifestId;
+    
+    try {
+        const response = await fetch(`/manifests/${manifestId}/`);
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            displayManifestDetails(data.manifest);
+            showModal('viewManifestModal');
+        } else {
+            toast('Error loading manifest');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Display manifest details
+function displayManifestDetails(manifest) {
+    document.getElementById('viewManifestNumber').textContent = manifest.manifest_number;
+    document.getElementById('viewFlight').textContent = manifest.flight_number;
+    document.getElementById('viewDeparture').textContent = manifest.departure_date + ' ' + manifest.departure_time;
+    document.getElementById('viewTotalBags').textContent = manifest.total_bags;
+    document.getElementById('viewTotalWeight').textContent = manifest.total_weight + ' KG';
+    
+    // Status badge
+    let statusClass = 'status-pending';
+    if (manifest.status === 'FINALIZED') statusClass = 'status-booked';
+    else if (manifest.status === 'DEPARTED') statusClass = 'status-transit';
+    else if (manifest.status === 'ARRIVED') statusClass = 'status-delivered';
+    
+    const badge = document.getElementById('viewManifestStatus');
+    badge.textContent = manifest.status_display;
+    badge.className = 'status-badge text-sm px-4 py-2 ' + statusClass;
+    
+    // Action buttons
+    renderActionButtons(manifest);
+    
+    // Bags list with shipment details
+    const bagsList = document.getElementById('bagsList');
+    if (manifest.bags.length > 0) {
+        bagsList.innerHTML = manifest.bags.map(bag => {
+            let shipmentInfo = '';
+            if (bag.shipment_info) {
+                shipmentInfo = `
+                    <div class="mt-2 pt-2 border-t border-gray-100">
+                        <p class="text-xs text-gray-500 mb-1">Shipment Details:</p>
+                        <p class="text-xs font-medium text-gray-900">${bag.shipment_info.awb_number}</p>
+                        <p class="text-xs text-gray-600">To: ${bag.shipment_info.recipient_name}</p>
+                        <p class="text-xs text-gray-600">${bag.shipment_info.status} • ${bag.shipment_info.weight} KG</p>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="border border-gray-200 rounded-lg p-3 hover:border-black transition-colors">
+                    <div class="flex items-start justify-between mb-1">
+                        <p class="text-sm font-semibold text-gray-900">${bag.bag_number}</p>
+                        <span class="text-xs px-2 py-0.5 rounded ${bag.status === 'SEALED' ? 'bg-green-100 text-green-700' : bag.status === 'IN_MANIFEST' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}">${bag.status_display}</span>
+                    </div>
+                    <p class="text-xs text-gray-600">${bag.shipment || 'No shipment'} • ${bag.weight} KG</p>
+                    ${shipmentInfo}
+                </div>
+            `;
+        }).join('');
+    } else {
+        bagsList.innerHTML = '<p class="text-sm text-gray-500">No bags in manifest</p>';
+    }
+}
+
+// Render action buttons based on status
+function renderActionButtons(manifest) {
+    const container = document.getElementById('actionButtons');
+    const buttons = [];
+    
+    if (manifest.status === 'DRAFT') {
+        buttons.push(`
+            <button onclick="finalizeManifest()" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all">
+                <span class="text-sm font-semibold">Finalize Manifest</span>
+            </button>
+        `);
+        buttons.push(`
+            <button onclick="deleteManifest()" class="w-full bg-white border-2 border-red-500 hover:bg-red-500 text-red-500 hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all">
+                <span class="text-sm font-semibold">Delete Manifest</span>
+            </button>
+        `);
+    } else if (manifest.status === 'FINALIZED') {
+        buttons.push(`
+            <button onclick="updateManifestStatus('DEPARTED')" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all">
+                <span class="text-sm font-semibold">Mark as Departed</span>
+            </button>
+        `);
+    } else if (manifest.status === 'DEPARTED') {
+        buttons.push(`
+            <button onclick="updateManifestStatus('ARRIVED')" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all">
+                <span class="text-sm font-semibold">Mark as Arrived</span>
+            </button>
+        `);
+    }
+    
+    container.innerHTML = buttons.join('');
+    
+    if (buttons.length === 0) {
+        document.getElementById('manifestActions').classList.add('hidden');
+    } else {
+        document.getElementById('manifestActions').classList.remove('hidden');
+    }
+}
+
+// Finalize manifest
+function finalizeManifest() {
+    document.getElementById('confirmTitle').textContent = 'Finalize Manifest';
+    document.getElementById('confirmMessage').textContent = 'Are you sure you want to finalize this manifest? This action cannot be undone.';
+    pendingAction = () => executeFinalize();
+    document.getElementById('confirmBtn').onclick = () => {
+        hideModal('confirmModal');
+        pendingAction();
+    };
+    showModal('confirmModal');
+}
+
+async function executeFinalize() {
+    showLoading();
+    try {
+        const response = await fetch(`/manifests/${currentManifestId}/finalize/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ ' + data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Delete manifest
+function deleteManifest() {
+    document.getElementById('confirmTitle').textContent = 'Delete Manifest';
+    document.getElementById('confirmMessage').textContent = 'Are you sure you want to delete this manifest?';
+    pendingAction = () => executeDelete();
+    document.getElementById('confirmBtn').onclick = () => {
+        hideModal('confirmModal');
+        pendingAction();
+    };
+    showModal('confirmModal');
+}
+
+async function executeDelete() {
+    showLoading();
+    try {
+        const response = await fetch(`/manifests/${currentManifestId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            hideModal('viewManifestModal');
+            toast('✓ ' + data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Update manifest status
+async function updateManifestStatus(newStatus) {
+    showLoading();
+    try {
+        const response = await fetch(`/manifests/${currentManifestId}/status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ ' + data.message);
+            setTimeout(() => viewManifestDetails(currentManifestId), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+</script>
+{% endblock %}

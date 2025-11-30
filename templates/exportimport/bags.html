@@ -1,0 +1,784 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Bag Management{% endblock %}
+{% block page_title %}Bag Management{% endblock %}
+
+{% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+    #modalReader { 
+        width: 100% !important; 
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    #modalReader video { 
+        border-radius: 8px; 
+        width: 100% !important; 
+        max-height: 200px;
+        object-fit: cover;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Total Bags</p>
+            <p class="text-2xl font-bold text-gray-900">{{ total_bags }}</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Open</p>
+            <p class="text-2xl font-bold text-blue-600">{{ open_bags }}</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Sealed</p>
+            <p class="text-2xl font-bold text-green-600">{{ sealed_bags }}</p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <p class="text-xs text-gray-500 mb-1">Dispatched</p>
+            <p class="text-2xl font-bold text-gray-600">{{ dispatched_bags }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Create Bag Button -->
+<div class="mb-6">
+    <button onclick="showCreateModal()" class="btn btn-primary flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Create New Bag</span>
+    </button>
+</div>
+
+<!-- Bags Grid -->
+<div class="card">
+    <div class="card-body">
+        {% if bags %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for bag in bags %}
+            <div onclick="viewBagDetails({{ bag.id }})" class="group relative border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-md transition-all cursor-pointer bg-white">
+                <!-- Status Badge -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-500 mb-1">Bag Number</p>
+                        <p class="text-sm font-semibold text-black group-hover:text-gray-700">{{ bag.bag_number }}</p>
+                    </div>
+                    <span class="status-badge {% if bag.status == 'OPEN' %}status-pending{% elif bag.status == 'SEALED' %}status-booked{% elif bag.status == 'DISPATCHED' %}status-delivered{% else %}status-transit{% endif %} text-xs">
+                        {{ bag.get_status_display }}
+                    </span>
+                </div>
+                
+                <!-- Details -->
+                <div class="space-y-2 text-xs mb-3">
+                    {% if bag.shipment %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <span class="text-gray-600 truncate">{{ bag.shipment.awb_number }}</span>
+                    </div>
+                    {% else %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <span class="text-gray-400 italic">No shipment assigned</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ bag.weight }} KG</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <span class="text-gray-600">{{ bag.created_at|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+                
+                <!-- View Action -->
+                <div class="flex items-center justify-end pt-3 border-t border-gray-100">
+                    <div class="flex items-center gap-1 text-gray-400 group-hover:text-black transition-colors">
+                        <span class="text-xs font-medium">View Details</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-gray-900 mb-1">No bags created yet</p>
+            <p class="text-xs text-gray-500 mb-4">Create your first bag to get started</p>
+            <button onclick="showCreateModal()" class="btn btn-primary">
+                Create Bag
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create Bag Modal -->
+<div id="createBagModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('createBagModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Create New Bag</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4">
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Bag Number *</label>
+                <input 
+                    type="text" 
+                    id="bagNumber"
+                    placeholder="e.g., BAG20250001"
+                    class="form-input"
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Shipment (Optional)</label>
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="shipmentAwbInput"
+                        placeholder="Enter or scan AWB number"
+                        class="form-input flex-1"
+                        readonly
+                    >
+                    <button type="button" onclick="showShipmentScanModal()" class="btn btn-secondary px-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Click button to scan or manually enter AWB</p>
+                <input type="hidden" id="selectedShipmentId" value="">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Weight (KG)</label>
+                <input 
+                    type="number" 
+                    id="bagWeight"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    class="form-input"
+                >
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button onclick="hideModal('createBagModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button onclick="createBag()" class="flex-1 btn btn-primary py-3">
+                    Create Bag
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Bag Details Modal -->
+<div id="viewBagModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('viewBagModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Bag Details</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="max-h-[85vh] overflow-y-auto">
+            <!-- Bag Info -->
+            <div class="bg-white p-4 border-b border-gray-100">
+                <div class="text-center mb-4">
+                    <p class="text-xs text-gray-500 mb-1">Bag Number</p>
+                    <p class="text-xl font-bold text-gray-900" id="viewBagNumber"></p>
+                </div>
+                
+                <div class="flex items-center justify-center mb-4">
+                    <span id="viewBagStatus" class="status-badge text-sm px-4 py-2"></span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 text-sm bg-gray-50 rounded-lg p-3">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Weight</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewBagWeight"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Created</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewBagCreated"></p>
+                    </div>
+                    <div class="col-span-2" id="viewBagShipmentContainer">
+                        <p class="text-xs text-gray-500 mb-1">Shipment</p>
+                        <p class="font-medium text-gray-900 text-sm" id="viewBagShipment"></p>
+                    </div>
+                </div>
+                
+                <!-- Shipment & Manifest Info -->
+                <div id="shipmentManifestInfo" class="mt-3 space-y-2 hidden">
+                    <div id="shipmentDetailSection" class="bg-green-50 rounded-lg p-3 border border-green-200 hidden">
+                        <p class="text-xs text-green-600 font-semibold mb-1">📦 Shipment Details</p>
+                        <p class="text-sm font-medium text-gray-900" id="viewShipmentAwb"></p>
+                        <p class="text-xs text-gray-600" id="viewShipmentRecipient"></p>
+                        <p class="text-xs text-gray-600" id="viewShipmentStatus"></p>
+                    </div>
+                    <div id="manifestDetailSection" class="bg-purple-50 rounded-lg p-3 border border-purple-200 hidden">
+                        <p class="text-xs text-purple-600 font-semibold mb-1">✈️ Manifest Details</p>
+                        <p class="text-sm font-medium text-gray-900" id="viewManifestNum"></p>
+                        <p class="text-xs text-gray-600" id="viewManifestFlight"></p>
+                        <p class="text-xs text-gray-600" id="viewManifestStatus"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Actions -->
+            <div class="bg-white p-4 border-b border-gray-100" id="statusActionsContainer">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Change Status</h3>
+                <div id="statusActionBtns" class="space-y-2"></div>
+            </div>
+
+            <!-- QR & Barcode -->
+            <div class="bg-white p-4">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Shipment Codes</h3>
+                <p class="text-xs text-gray-500 mb-3" id="codesNote">Displaying shipment AWB codes</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 mb-2">QR Code</p>
+                        <img id="viewBagQR" src="" alt="QR Code" class="mx-auto border border-gray-200 rounded">
+                    </div>
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 mb-2">Barcode</p>
+                        <img id="viewBagBarcode" src="" alt="Barcode" class="mx-auto border border-gray-200 rounded">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shipment Scan/Input Modal -->
+<div id="shipmentScanModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('shipmentScanModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Find Shipment</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+            <!-- Scanner Section -->
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Scan QR/Barcode</label>
+                <div class="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                    <div id="modalReader" class="bg-white rounded-lg" style="max-width: 300px; margin: 0 auto;"></div>
+                    <button id="startModalScan" onclick="startModalScanner()" class="w-full mt-3 btn btn-primary text-sm">
+                        Start Scanner
+                    </button>
+                    <button id="stopModalScan" onclick="stopModalScanner()" class="w-full mt-3 btn btn-secondary text-sm hidden">
+                        Stop Scanner
+                    </button>
+                </div>
+            </div>
+
+            <!-- Or Divider -->
+            <div class="relative my-4">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-xs">
+                    <span class="px-2 bg-white text-gray-500">OR</span>
+                </div>
+            </div>
+
+            <!-- Manual Input -->
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Enter AWB Number</label>
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="manualAwbInput"
+                        placeholder="e.g., DH202501291234"
+                        class="form-input flex-1"
+                        onkeypress="if(event.key==='Enter') searchShipmentByAwb()"
+                    >
+                    <button onclick="searchShipmentByAwb()" class="btn btn-primary px-4">
+                        Search
+                    </button>
+                </div>
+            </div>
+
+            <!-- Shipment Info (shown after search) -->
+            <div id="shipmentInfo" class="hidden">
+                <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <p class="text-xs text-green-600 mb-1">✓ Shipment Found</p>
+                    <p class="text-sm font-semibold text-gray-900" id="foundAwb"></p>
+                    <p class="text-xs text-gray-600 mt-1" id="foundRecipient"></p>
+                    <p class="text-xs text-gray-600" id="foundWeight"></p>
+                    <p class="text-xs text-gray-600" id="foundStatus"></p>
+                </div>
+                <button onclick="selectFoundShipment()" class="w-full btn btn-success mt-3">
+                    Select This Shipment
+                </button>
+            </div>
+
+            <!-- Or Divider -->
+            <div class="relative my-4">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-xs">
+                    <span class="px-2 bg-white text-gray-500">OR</span>
+                </div>
+            </div>
+
+            <!-- All Non-Delivered Shipments Dropdown -->
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Select from All Shipments</label>
+                <select id="allShipmentsDropdown" class="form-input" onchange="selectFromDropdown()">
+                    <option value="">Choose a shipment...</option>
+                    {% for shipment in all_shipments %}
+                    <option value="{{ shipment.id }}" 
+                            data-awb="{{ shipment.awb_number }}" 
+                            data-recipient="{{ shipment.recipient_name }}" 
+                            data-weight="{{ shipment.weight_estimated }}"
+                            data-status="{{ shipment.get_current_status_display }}">
+                        {{ shipment.awb_number }} - {{ shipment.recipient_name }} ({{ shipment.get_current_status_display }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Showing all non-delivered shipments</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Status Change Modal -->
+<div id="confirmStatusModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-5">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-black rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2">Confirm Status Change</h3>
+                <p class="text-sm text-gray-600">Are you sure you want to change the bag status to <span id="confirmNewStatus" class="font-semibold text-gray-900"></span>?</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideModal('confirmStatusModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="confirmStatusBtn" class="flex-1 btn btn-primary py-3">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Show create modal
+function showCreateModal() {
+    document.getElementById('bagNumber').value = '';
+    document.getElementById('shipmentAwbInput').value = '';
+    document.getElementById('selectedShipmentId').value = '';
+    document.getElementById('bagWeight').value = '';
+    showModal('createBagModal');
+}
+
+// Modal scanner variables
+let modalQrScanner = null;
+let modalScanning = false;
+
+// Show shipment scan modal
+function showShipmentScanModal() {
+    document.getElementById('manualAwbInput').value = '';
+    document.getElementById('shipmentInfo').classList.add('hidden');
+    document.getElementById('allShipmentsDropdown').value = '';
+    showModal('shipmentScanModal');
+}
+
+// Start modal scanner
+async function startModalScanner() {
+    if (modalScanning) return;
+    
+    try {
+        modalScanning = true;
+        modalQrScanner = new Html5Qrcode("modalReader");
+        
+        await modalQrScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: 200 },
+            (decodedText) => {
+                document.getElementById('manualAwbInput').value = decodedText;
+                searchShipmentByAwb();
+                stopModalScanner();
+            },
+            () => {}
+        );
+        
+        document.getElementById('startModalScan').classList.add('hidden');
+        document.getElementById('stopModalScan').classList.remove('hidden');
+    } catch (err) {
+        modalScanning = false;
+        toast('Camera error. Please use manual entry.');
+    }
+}
+
+// Stop modal scanner
+function stopModalScanner() {
+    if (modalQrScanner && modalScanning) {
+        try {
+            modalQrScanner.stop().then(() => {
+                modalQrScanner.clear();
+                modalScanning = false;
+                document.getElementById('startModalScan').classList.remove('hidden');
+                document.getElementById('stopModalScan').classList.add('hidden');
+            }).catch(() => {
+                modalScanning = false;
+                document.getElementById('startModalScan').classList.remove('hidden');
+                document.getElementById('stopModalScan').classList.add('hidden');
+            });
+        } catch (err) {
+            modalScanning = false;
+            document.getElementById('startModalScan').classList.remove('hidden');
+            document.getElementById('stopModalScan').classList.add('hidden');
+        }
+    }
+}
+
+// Search shipment by AWB
+let foundShipmentId = null;
+let foundShipmentAwb = null;
+async function searchShipmentByAwb() {
+    const awb = document.getElementById('manualAwbInput').value.trim();
+    if (!awb) {
+        toast('Please enter AWB number');
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`/scan/${awb}/`);
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success) {
+            const shipment = data.shipment;
+            foundShipmentId = shipment.id;
+            foundShipmentAwb = shipment.awb_number;
+            document.getElementById('foundAwb').textContent = shipment.awb_number;
+            document.getElementById('foundRecipient').textContent = shipment.sender_name + ' → ' + shipment.recipient_name;
+            document.getElementById('foundWeight').textContent = shipment.weight + ' KG';
+            document.getElementById('foundStatus').textContent = 'Status: ' + shipment.status_display;
+            document.getElementById('shipmentInfo').classList.remove('hidden');
+        } else {
+            toast('Shipment not found');
+            document.getElementById('shipmentInfo').classList.add('hidden');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Search failed');
+    }
+}
+
+// Select found shipment
+function selectFoundShipment() {
+    if (!foundShipmentId) return;
+    
+    document.getElementById('shipmentAwbInput').value = foundShipmentAwb;
+    document.getElementById('selectedShipmentId').value = foundShipmentId;
+    stopModalScanner();
+    hideModal('shipmentScanModal');
+    toast('✓ Shipment selected');
+}
+
+// Select from dropdown
+function selectFromDropdown() {
+    const dropdown = document.getElementById('allShipmentsDropdown');
+    const selectedOption = dropdown.options[dropdown.selectedIndex];
+    
+    if (!selectedOption.value) return;
+    
+    const id = selectedOption.value;
+    const awb = selectedOption.getAttribute('data-awb');
+    const recipient = selectedOption.getAttribute('data-recipient');
+    const weight = selectedOption.getAttribute('data-weight');
+    const status = selectedOption.getAttribute('data-status');
+    
+    // Show in found shipment area
+    foundShipmentId = id;
+    foundShipmentAwb = awb;
+    document.getElementById('foundAwb').textContent = awb;
+    document.getElementById('foundRecipient').textContent = recipient;
+    document.getElementById('foundWeight').textContent = weight + ' KG';
+    document.getElementById('foundStatus').textContent = 'Status: ' + status;
+    document.getElementById('shipmentInfo').classList.remove('hidden');
+    
+    // Auto-select
+    document.getElementById('shipmentAwbInput').value = awb;
+    document.getElementById('selectedShipmentId').value = id;
+    stopModalScanner();
+    hideModal('shipmentScanModal');
+    toast('✓ Shipment selected');
+}
+
+// Create bag
+async function createBag() {
+    const bagNumber = document.getElementById('bagNumber').value.trim();
+    const shipmentId = document.getElementById('selectedShipmentId').value;
+    const weight = document.getElementById('bagWeight').value;
+
+    if (!bagNumber) {
+        toast('Please enter bag number');
+        return;
+    }
+
+    showLoading();
+    
+    try {
+        const response = await fetch('/bags/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                bag_number: bagNumber,
+                shipment_id: shipmentId || null,
+                weight: weight || 0
+            })
+        });
+
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success) {
+            hideModal('createBagModal');
+            toast('✓ Bag created successfully');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Current bag ID for status change
+let currentBagId = null;
+let pendingNewStatus = null;
+let pendingNewStatusLabel = null;
+
+// View bag details
+async function viewBagDetails(bagId) {
+    showLoading();
+    currentBagId = bagId;
+    
+    try {
+        const response = await fetch(`/bags/${bagId}/`);
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success) {
+            const bag = data.bag;
+            
+            document.getElementById('viewBagNumber').textContent = bag.bag_number;
+            document.getElementById('viewBagWeight').textContent = bag.weight + ' KG';
+            document.getElementById('viewBagCreated').textContent = bag.created_at;
+            
+            // Status badge
+            let statusClass = 'status-pending';
+            if (bag.status === 'SEALED') statusClass = 'status-booked';
+            else if (bag.status === 'DISPATCHED') statusClass = 'status-delivered';
+            else if (bag.status === 'IN_MANIFEST') statusClass = 'status-transit';
+            
+            const badge = document.getElementById('viewBagStatus');
+            badge.textContent = bag.status_display;
+            badge.className = 'status-badge text-sm px-4 py-2 ' + statusClass;
+            
+            // Shipment
+            if (bag.shipment) {
+                document.getElementById('viewBagShipmentContainer').classList.remove('hidden');
+                document.getElementById('viewBagShipment').textContent = bag.shipment;
+                document.getElementById('codesNote').textContent = `Displaying shipment ${bag.shipment} codes`;
+            } else {
+                document.getElementById('viewBagShipmentContainer').classList.add('hidden');
+                document.getElementById('codesNote').textContent = 'Displaying bag number codes (no shipment assigned)';
+            }
+            
+            // Show shipment and manifest details
+            const shipmentManifestInfo = document.getElementById('shipmentManifestInfo');
+            const shipmentDetailSection = document.getElementById('shipmentDetailSection');
+            const manifestDetailSection = document.getElementById('manifestDetailSection');
+            
+            if (bag.shipment_info || bag.manifest) {
+                shipmentManifestInfo.classList.remove('hidden');
+                
+                if (bag.shipment_info) {
+                    shipmentDetailSection.classList.remove('hidden');
+                    document.getElementById('viewShipmentAwb').textContent = bag.shipment_info.awb_number;
+                    document.getElementById('viewShipmentRecipient').textContent = `To: ${bag.shipment_info.recipient_name}`;
+                    document.getElementById('viewShipmentStatus').textContent = `Status: ${bag.shipment_info.status} • ${bag.shipment_info.weight} KG`;
+                } else {
+                    shipmentDetailSection.classList.add('hidden');
+                }
+                
+                if (bag.manifest) {
+                    manifestDetailSection.classList.remove('hidden');
+                    document.getElementById('viewManifestNum').textContent = bag.manifest.manifest_number;
+                    document.getElementById('viewManifestFlight').textContent = `Flight: ${bag.manifest.flight_number}`;
+                    document.getElementById('viewManifestStatus').textContent = `${bag.manifest.status} • ${bag.manifest.departure_date}`;
+                } else {
+                    manifestDetailSection.classList.add('hidden');
+                }
+            } else {
+                shipmentManifestInfo.classList.add('hidden');
+            }
+            
+            // Status action buttons
+            renderStatusButtons(bag.status);
+            
+            // QR & Barcode
+            document.getElementById('viewBagQR').src = bag.qr_code;
+            document.getElementById('viewBagBarcode').src = bag.barcode;
+            
+            showModal('viewBagModal');
+        } else {
+            toast('Error loading bag details');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Render status change buttons based on current status
+function renderStatusButtons(currentStatus) {
+    const statusFlow = {
+        'OPEN': [
+            { status: 'SEALED', label: 'Seal Bag', icon: 'lock' }
+        ],
+        'SEALED': [
+            { status: 'IN_MANIFEST', label: 'Add to Manifest', icon: 'document' }
+        ],
+        'IN_MANIFEST': [
+            { status: 'DISPATCHED', label: 'Mark as Dispatched', icon: 'truck' }
+        ],
+        'DISPATCHED': []
+    };
+    
+    const buttons = statusFlow[currentStatus] || [];
+    const container = document.getElementById('statusActionBtns');
+    
+    if (buttons.length === 0) {
+        document.getElementById('statusActionsContainer').classList.add('hidden');
+        return;
+    }
+    
+    document.getElementById('statusActionsContainer').classList.remove('hidden');
+    
+    const icons = {
+        'lock': `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+        </svg>`,
+        'document': `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>`,
+        'truck': `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path>
+        </svg>`
+    };
+    
+    container.innerHTML = buttons.map(btn => `
+        <button onclick="confirmStatusChange('${btn.status}', '${btn.label}')" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-start gap-3 text-left group">
+            <div class="w-10 h-10 bg-black group-hover:bg-white text-white group-hover:text-black rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                ${icons[btn.icon]}
+            </div>
+            <span class="text-sm font-semibold">${btn.label}</span>
+        </button>
+    `).join('');
+}
+
+// Show confirmation modal
+function confirmStatusChange(newStatus, label) {
+    pendingNewStatus = newStatus;
+    pendingNewStatusLabel = label;
+    document.getElementById('confirmNewStatus').textContent = label;
+    showModal('confirmStatusModal');
+}
+
+// Confirm and execute status change
+document.getElementById('confirmStatusBtn').onclick = async () => {
+    hideModal('confirmStatusModal');
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${currentBagId}/status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                status: pendingNewStatus
+            })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Status updated successfully');
+            // Reload bag details
+            setTimeout(() => viewBagDetails(currentBagId), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+};
+</script>
+{% endblock %}

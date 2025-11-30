@@ -1,0 +1,120 @@
+{% extends "admin/change_form.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .shipment-codes-section {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    
+    .codes-container {
+        display: flex;
+        gap: 30px;
+        justify-content: center;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    
+    .code-box {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        min-width: 250px;
+    }
+    
+    .code-box h3 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 16px;
+        font-weight: 600;
+    }
+    
+    .code-box img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #ddd;
+        padding: 10px;
+        background: white;
+    }
+    
+    .awb-display {
+        margin-top: 10px;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        font-weight: bold;
+        color: #2c3e50;
+        letter-spacing: 2px;
+    }
+    
+    .print-button {
+        margin-top: 15px;
+        padding: 10px 20px;
+        background: #c4d82e;
+        color: #333;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.3s;
+    }
+    
+    .print-button:hover {
+        background: #a8b828;
+    }
+    
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        .shipment-codes-section,
+        .shipment-codes-section * {
+            visibility: visible;
+        }
+        .shipment-codes-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .print-button {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+
+{% if original and original.pk %}
+<div class="shipment-codes-section">
+    <div class="codes-container">
+        <div class="code-box">
+            <h3>{% trans "QR Code" %}</h3>
+            <img src="{{ original.get_qrcode_url }}" alt="QR Code for {{ original.awb_number }}">
+            <div class="awb-display">{{ original.awb_number }}</div>
+        </div>
+        
+        <div class="code-box">
+            <h3>{% trans "Barcode" %}</h3>
+            <img src="{{ original.get_barcode_url }}" alt="Barcode for {{ original.awb_number }}">
+            <div class="awb-display">{{ original.awb_number }}</div>
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px;">
+        <button type="button" class="print-button" onclick="window.print()">
+            🖨️ {% trans "Print Labels" %}
+        </button>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

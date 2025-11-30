@@ -1,0 +1,106 @@
+/* Custom Sidebar Styling for Unfold Admin - Target #nav-sidebar only */
+
+/* Main sidebar container - dark blue gradient */
+#nav-sidebar {
+    background: linear-gradient(180deg, #1a4d6d 0%, #0d2d45 100%) !important;
+}
+
+/* Inner nav background */
+#nav-sidebar-inner {
+    background: transparent !important;
+}
+
+/* Scrollable content area */
+#nav-sidebar .simplebar-content-wrapper,
+#nav-sidebar .simplebar-content {
+    background: transparent !important;
+}
+
+/* Section titles (h2) - lighter text */
+#nav-sidebar h2 {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Separator lines - subtle white */
+#nav-sidebar hr {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Navigation links - white text */
+#nav-sidebar ol li a {
+    color: rgba(255, 255, 255, 0.9) !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Icons - white color */
+#nav-sidebar ol li a .material-symbols-outlined {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Hover state - lime green tint */
+#nav-sidebar ol li a:hover {
+    background: rgba(196, 216, 46, 0.2) !important;
+    color: #ffffff !important;
+}
+
+#nav-sidebar ol li a:hover .material-symbols-outlined {
+    color: #ffffff !important;
+}
+
+/* Active menu item - lime green background with white text */
+#nav-sidebar ol li a[aria-current="page"],
+#nav-sidebar ol li a.bg-primary-600 {
+    background: linear-gradient(90deg, #c4d82e 0%, #b8cc2a 100%) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+#nav-sidebar ol li a[aria-current="page"] .material-symbols-outlined,
+#nav-sidebar ol li a.bg-primary-600 .material-symbols-outlined {
+    color: #ffffff !important;
+}
+
+/* Collapsible section headers */
+#nav-sidebar h2.cursor-pointer {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+#nav-sidebar h2.cursor-pointer:hover {
+    color: #c4d82e !important;
+}
+
+#nav-sidebar h2.cursor-pointer .material-symbols-outlined {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+#nav-sidebar h2.cursor-pointer:hover .material-symbols-outlined {
+    color: #c4d82e !important;
+}
+
+/* Search input in sidebar */
+#nav-sidebar input {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+}
+
+#nav-sidebar input::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Site name/header area */
+#nav-sidebar #site-name a {
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Logo icon background */
+#nav-sidebar .bg-primary-600 {
+    background: #c4d82e !important;
+    color: #1a4d6d !important;
+}
+
+/* Border colors */
+#nav-sidebar .border-base-200,
+#nav-sidebar .border-b {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
