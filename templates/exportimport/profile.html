@@ -1,0 +1,129 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}My Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-base font-semibold text-gray-900">Profile Information</h2>
+            <p class="text-sm text-gray-500 mt-1">Update your account details</p>
+        </div>
+        
+        <div class="card-body">
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                <div class="mb-6 p-3 rounded-md text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Form Errors -->
+            {% if form.non_field_errors %}
+                <div class="mb-6 p-3 rounded-md text-sm bg-red-50 text-red-700 border border-red-200">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Profile Form -->
+            <form method="POST" action="{% url 'profile' %}" class="space-y-5">
+                {% csrf_token %}
+                
+                <!-- Name -->
+                <div class="form-group">
+                    <label for="name" class="form-label">Full Name</label>
+                    <input 
+                        type="text" 
+                        id="name" 
+                        name="name" 
+                        required
+                        value="{{ form.name.value|default:'' }}"
+                        class="form-input {% if form.name.errors %}border-red-500{% endif %}"
+                        placeholder="Enter your full name"
+                    >
+                    {% if form.name.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ form.name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        required
+                        value="{{ form.email.value|default:'' }}"
+                        class="form-input {% if form.email.errors %}border-red-500{% endif %}"
+                        placeholder="your.email@example.com"
+                    >
+                    {% if form.email.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ form.email.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Phone -->
+                <div class="form-group">
+                    <label for="phone" class="form-label">Phone</label>
+                    <input 
+                        type="text" 
+                        id="phone" 
+                        name="phone" 
+                        value="{{ form.phone.value|default:'' }}"
+                        class="form-input {% if form.phone.errors %}border-red-500{% endif %}"
+                        placeholder="Enter your phone number"
+                    >
+                    {% if form.phone.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ form.phone.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Address -->
+                <div class="form-group">
+                    <label for="address" class="form-label">Address</label>
+                    <textarea 
+                        id="address" 
+                        name="address" 
+                        rows="3"
+                        class="form-input {% if form.address.errors %}border-red-500{% endif %}"
+                        placeholder="Enter your address"
+                    >{{ form.address.value|default:'' }}</textarea>
+                    {% if form.address.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ form.address.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Country -->
+                <div class="form-group">
+                    <label for="country" class="form-label">Country</label>
+                    <input 
+                        type="text" 
+                        id="country" 
+                        name="country" 
+                        required
+                        value="{{ form.country.value|default:'Bangladesh' }}"
+                        class="form-input {% if form.country.errors %}border-red-500{% endif %}"
+                        placeholder="Enter your country"
+                    >
+                    {% if form.country.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ form.country.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn btn-primary">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

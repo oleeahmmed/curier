@@ -1,12 +1,17 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
+from django.views.generic import CreateView, UpdateView, FormView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
 from django.utils import timezone
+from django.contrib.auth.models import User
 from .models import Customer, Shipment, Bag, TrackingEvent
+from .forms import CustomerRegistrationForm, ProfileForm, PasswordChangeForm
 import json
 
 
@@ -857,6 +862,97 @@ def update_bag_status(request, bag_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+# ==================== CUSTOMER REGISTRATION AND PROFILE ====================
+class CustomerRegistrationView(CreateView):
+    """
+    Handles customer registration with User and Customer creation.
+    """
+    model = User
+    form_class = CustomerRegistrationForm
+    template_name = 'exportimport/register.html'
+    success_url = reverse_lazy('login')
+    
+    def form_valid(self, form):
+        # Create User with hashed password
+        user = form.save(commit=False)
+        user.set_password(form.cleaned_data['password'])
+        user.save()
+        
+        # Create Customer with OneToOne relationship
+        Customer.objects.create(
+            user=user,
+            name=form.cleaned_data['full_name'],
+            email=form.cleaned_data['email'],
+            country=form.cleaned_data['country'],
+            phone='',  # Empty initially, can be updated in profile
+            address='',  # Empty initially, can be updated in profile
+            customer_type='REGULAR'
+        )
+        
+        messages.success(self.request, 'Registration successful! Please log in.')
+        return super().form_valid(form)
+
+
+class ProfileView(LoginRequiredMixin, UpdateView):
+    """
+    Displays and updates profile information for all users.
+    For customers: updates Customer record
+    For staff: updates User record only
+    """
+    model = Customer
+    form_class = ProfileForm
+    template_name = 'exportimport/profile.html'
+    success_url = reverse_lazy('profile')
+    login_url = '/login/'
+    
+    def get_object(self):
+        # Return the Customer instance for the logged-in user
+        # If user doesn't have a customer record (staff), create one
+        try:
+            return self.request.user.customer
+        except Customer.DoesNotExist:
+            # Create a Customer record for staff users
+            return Customer.objects.create(
+                user=self.request.user,
+                name=self.request.user.get_full_name() or self.request.user.username,
+                email=self.request.user.email or '',
+                country='Bangladesh',
+                phone='',
+                address='',
+                customer_type='REGULAR'
+            )
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Profile updated successfully!')
+        return super().form_valid(form)
+
+
+class PasswordChangeView(LoginRequiredMixin, FormView):
+    """
+    Handles password change for authenticated customers.
+    """
+    form_class = PasswordChangeForm
+    template_name = 'exportimport/change_password.html'
+    success_url = reverse_lazy('parcel_booking')
+    login_url = '/login/'
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+    
+    def form_valid(self, form):
+        user = self.request.user
+        user.set_password(form.cleaned_data['new_password'])
+        user.save()
+        
+        # Update session to prevent logout
+        update_session_auth_hash(self.request, user)
+        
+        messages.success(self.request, 'Password changed successfully!')
+        return super().form_valid(form)
 
 
 # ==================== HELPER FUNCTIONS ====================

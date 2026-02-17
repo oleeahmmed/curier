@@ -7,6 +7,11 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     
+    # Customer Registration and Profile
+    path('register/', views.CustomerRegistrationView.as_view(), name='customer_register'),
+    path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('change-password/', views.PasswordChangeView.as_view(), name='change_password'),
+    
     # Scanning Interface (Staff)
     path('', views.scan_home, name='scan_home'),
     path('scan/<str:awb>/', views.scan_shipment, name='scan_shipment'),
