@@ -1,0 +1,82 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Pending Parcels{% endblock %}
+{% block page_title %}Pending Parcels{% endblock %}
+
+{% block content %}
+<!-- Stats Card -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+        <div class="card-body">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase">Total Pending</p>
+                    <p class="text-2xl font-bold text-black mt-1">{{ pending_shipments.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Parcels List -->
+<div class="card">
+    <div class="card-header">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold text-gray-900">Pending Parcels</h2>
+        </div>
+    </div>
+    
+    <div class="card-body">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sender</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weight</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for shipment in pending_shipments %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                            {% if shipment.customer %}
+                                {{ shipment.customer.name }}
+                            {% else %}
+                                <span class="text-gray-400">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.sender_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.recipient_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.weight_estimated }} KG</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.created_at|date:"M d, Y" }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{% url 'parcel_details' shipment.id %}" class="text-xs text-black hover:text-gray-600 font-medium">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center">
+                            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                            <p class="text-gray-500">No pending parcels</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

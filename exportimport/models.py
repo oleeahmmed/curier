@@ -34,7 +34,6 @@ class Shipment(models.Model):
     # Direction
     DIRECTION_CHOICES = [
         ('BD_TO_HK', 'Bangladesh to Hong Kong'),
-        ('HK_TO_BD', 'Hong Kong to Bangladesh'),
     ]
     
     # Status for BD → HK
@@ -51,22 +50,8 @@ class Shipment(models.Model):
         ('DELIVERED_IN_HK', 'Delivered in Hong Kong'),
     ]
     
-    # Status for HK → BD
-    STATUS_HK_TO_BD = [
-        ('PENDING', 'PENDING'),
-        ('BOOKED', 'Booked'),
-
-        ('IN_TRANSIT_TO_BD', 'In Transit to Bangladesh'),
-        ('ARRIVED_AT_BD', 'Arrived at Bangladesh'),
-        ('CUSTOMS_CLEARANCE_BD', 'Customs Clearance Bangladesh'),
-        ('CUSTOMS_CLEARED_BD', 'Customs Cleared Bangladesh'),
-        ('READY_FOR_DELIVERY', 'Ready for Delivery'),
-        ('OUT_FOR_DELIVERY', 'Out for Delivery'),
-        ('DELIVERED', 'Delivered'),
-    ]
-    
     # Combined Status
-    STATUS_CHOICES = STATUS_BD_TO_HK + STATUS_HK_TO_BD + [
+    STATUS_CHOICES = STATUS_BD_TO_HK + [
         ('EXCEPTION_DAMAGED', 'Exception - Damaged'),
         ('EXCEPTION_CUSTOMS_HOLD', 'Exception - Customs Hold'),
         ('RETURN_TO_SENDER', 'Return to Sender'),
@@ -84,7 +69,7 @@ class Shipment(models.Model):
     ]
     
     # === BASIC INFO ===
-    awb_number = models.CharField(max_length=50, unique=True, editable=False)
+    awb_number = models.CharField(max_length=50, unique=True, editable=False, blank=True, null=True)
     external_awb = models.CharField(max_length=50, blank=True, null=True, help_text="External AWB (from HK/Airline)")
     direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='shipments', null=True, blank=True)
@@ -159,7 +144,8 @@ class Shipment(models.Model):
     booked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='booked_shipments')
     
     def save(self, *args, **kwargs):
-        if not self.awb_number:
+        # Generate AWB only if status is not PENDING and AWB doesn't exist
+        if not self.awb_number and self.current_status != 'PENDING':
             # Generate AWB based on direction
             date_str = timezone.now().strftime('%Y%m%d')
             random_num = str(uuid.uuid4().int)[:5]

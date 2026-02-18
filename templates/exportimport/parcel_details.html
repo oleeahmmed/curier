@@ -1,0 +1,258 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Parcel Details{% endblock %}
+{% block page_title %}Parcel Details{% endblock %}
+
+{% block content %}
+<!-- Back Button -->
+<div class="mb-4">
+    <a href="javascript:history.back()" class="text-sm text-gray-600 hover:text-black flex items-center">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Back
+    </a>
+</div>
+
+<!-- Parcel Information Card -->
+<div class="card mb-6">
+    <div class="card-header">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-semibold text-gray-900">Parcel Information</h2>
+            <div class="flex gap-2">
+                {% if can_book %}
+                <button onclick="bookParcel({{ shipment.id }})" class="btn btn-primary">
+                    Book Parcel
+                </button>
+                {% endif %}
+                {% if can_edit %}
+                <a href="{% url 'parcel_booking' %}?edit={{ shipment.id }}" class="btn btn-secondary">
+                    Edit
+                </a>
+                {% endif %}
+                {% if shipment.current_status != 'PENDING' %}
+                <a href="{% url 'invoice_view' shipment.id %}" class="btn btn-secondary" target="_blank">
+                    View Invoice
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="card-body">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Basic Info -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Basic Information</h3>
+                <dl class="space-y-2">
+                    {% if shipment.awb_number %}
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">AWB Number:</dt>
+                        <dd class="text-sm text-gray-900 font-medium">{{ shipment.awb_number }}</dd>
+                    </div>
+                    {% endif %}
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Status:</dt>
+                        <dd class="text-sm">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full
+                                {% if shipment.current_status == 'PENDING' %}bg-yellow-100 text-yellow-800
+                                {% elif shipment.current_status == 'BOOKED' %}bg-blue-100 text-blue-800
+                                {% elif shipment.current_status == 'DELIVERED_IN_HK' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ shipment.get_current_status_display }}
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Direction:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.get_direction_display }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Service Type:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.get_service_type_display }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Created:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.created_at|date:"M d, Y H:i" }}</dd>
+                    </div>
+                </dl>
+            </div>
+            
+            <!-- Parcel Details -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Parcel Details</h3>
+                <dl class="space-y-2">
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Contents:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.contents }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Weight:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.weight_estimated }} KG</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Declared Value:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.declared_currency }} {{ shipment.declared_value }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Payment:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.get_payment_method_display }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-200">
+            <!-- Sender Info -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h3>
+                <dl class="space-y-2">
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Name:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.sender_name }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Phone:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.sender_phone }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Address:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.sender_address }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Country:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.sender_country }}</dd>
+                    </div>
+                </dl>
+            </div>
+            
+            <!-- Recipient Info -->
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Recipient Information</h3>
+                <dl class="space-y-2">
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Name:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.recipient_name }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Phone:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.recipient_phone }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Address:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.recipient_address }}</dd>
+                    </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Country:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.recipient_country }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tracking History -->
+{% if tracking_events %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="text-base font-semibold text-gray-900">Tracking History</h2>
+    </div>
+    <div class="card-body">
+        <div class="relative">
+            <!-- Timeline line -->
+            <div class="absolute left-8 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+            
+            <div class="space-y-6">
+                {% for event in tracking_events %}
+                <div class="relative flex gap-4">
+                    <!-- Timeline dot -->
+                    <div class="flex-shrink-0 w-16 flex flex-col items-center">
+                        <div class="w-4 h-4 rounded-full bg-black border-4 border-white shadow-sm z-10"></div>
+                    </div>
+                    
+                    <!-- Event content -->
+                    <div class="flex-grow pb-6">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-start justify-between mb-2">
+                                <div>
+                                    <div class="text-sm font-semibold text-gray-900">{{ event.get_status_display }}</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        {{ event.timestamp|date:"F d, Y" }} at {{ event.timestamp|date:"g:i A" }}
+                                    </div>
+                                </div>
+                                {% if event.status == 'DELIVERED' or event.status == 'DELIVERED_IN_HK' %}
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                    Delivered
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if event.description %}
+                            <div class="text-sm text-gray-700 mt-2">
+                                {{ event.description }}
+                            </div>
+                            {% endif %}
+                            
+                            {% if event.location and not user.is_staff %}
+                                {% if 'Dashboard' not in event.location and 'Admin' not in event.location %}
+                                <div class="flex items-center gap-2 text-xs text-gray-600 mt-2">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                    <span>{{ event.location }}</span>
+                                </div>
+                                {% endif %}
+                            {% elif event.location and user.is_staff %}
+                            <div class="flex items-center gap-2 text-xs text-gray-600 mt-2">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                                <span>{{ event.location }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function bookParcel(parcelId) {
+    if (!confirm('Are you sure you want to book this parcel? This will generate an AWB number.')) {
+        return;
+    }
+    
+    fetch(`/api/book-parcel/${parcelId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Parcel booked successfully! AWB: ${data.awb_number}`);
+            location.reload();
+        } else {
+            if (data.missing_fields) {
+                alert(`Cannot book parcel. Missing required fields:\n${data.missing_fields.join('\n')}`);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+    })
+    .catch(error => {
+        alert('An error occurred while booking the parcel');
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %}

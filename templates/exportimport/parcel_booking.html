@@ -104,7 +104,7 @@
         <!-- Grid View -->
         <div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for parcel in parcels %}
-            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer" onclick="viewParcel({{ parcel.id }})">
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer" onclick="window.location.href='{% url 'parcel_details' parcel.id %}'">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex-1">
                         <p class="text-xs text-gray-500 mb-1">AWB Number</p>
@@ -130,7 +130,7 @@
                     </div>
                 </div>
                 
-                {% if parcel.current_status == 'PENDING' %}
+                {% if user.is_staff or parcel.current_status == 'PENDING' %}
                 <div class="flex gap-2 pt-3 border-t border-gray-100">
                     <button onclick="event.stopPropagation(); editParcel({{ parcel.id }})" class="flex-1 py-1.5 text-xs font-medium text-black bg-gray-100 rounded-md hover:bg-gray-200">
                         Edit
@@ -138,6 +138,13 @@
                     <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="flex-1 py-1.5 text-xs font-medium text-black bg-gray-100 rounded-md hover:bg-gray-200">
                         Delete
                     </button>
+                </div>
+                {% endif %}
+                {% if parcel.current_status != 'PENDING' %}
+                <div class="flex gap-2 pt-3 border-t border-gray-100">
+                    <a href="{% url 'invoice_view' parcel.id %}" onclick="event.stopPropagation();" class="flex-1 py-1.5 text-xs font-medium text-center text-white bg-black rounded-md hover:bg-gray-800">
+                        View Invoice
+                    </a>
                 </div>
                 {% endif %}
             </div>
@@ -170,7 +177,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         {% for parcel in parcels %}
-                        <tr class="hover:bg-gray-50 cursor-pointer" onclick="viewParcel({{ parcel.id }})">
+                        <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{% url 'parcel_details' parcel.id %}'">
                             <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ parcel.awb_number }}</td>
                             <td class="px-4 py-3 text-sm text-gray-600">{{ parcel.get_direction_display }}</td>
                             <td class="px-4 py-3 text-sm text-gray-600">{{ parcel.recipient_name }}</td>
@@ -182,11 +189,15 @@
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex gap-2">
-                                    {% if parcel.current_status == 'PENDING' %}
+                                    {% if user.is_staff or parcel.current_status == 'PENDING' %}
                                     <button onclick="event.stopPropagation(); editParcel({{ parcel.id }})" class="text-xs text-black hover:text-gray-600 font-medium">Edit</button>
                                     <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="text-xs text-black hover:text-gray-600 font-medium">Delete</button>
-                                    {% else %}
-                                    <button onclick="event.stopPropagation(); viewParcel({{ parcel.id }})" class="text-xs text-black hover:text-gray-600 font-medium">View</button>
+                                    {% endif %}
+                                    {% if parcel.current_status != 'PENDING' %}
+                                    <a href="{% url 'invoice_view' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View Invoice</a>
+                                    {% endif %}
+                                    {% if not user.is_staff and parcel.current_status != 'PENDING' %}
+                                    <a href="{% url 'parcel_details' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View</a>
                                     {% endif %}
                                 </div>
                             </td>
@@ -359,7 +370,7 @@
 <script>
 let currentParcelId = null;
 let deleteParcelId = null;
-let currentView = 'grid';
+let currentView = 'list';
 
 // View Toggle
 function setView(view) {
@@ -381,6 +392,11 @@ function setView(view) {
         gridBtn.classList.remove('bg-gray-100');
     }
 }
+
+// Initialize list view on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setView('list');
+});
 
 // COD Toggle
 document.getElementById('isCod').onchange = (e) => {
@@ -570,6 +586,19 @@ async function viewParcel(id) {
                 `;
             }
             
+            // Add Book button for staff viewing PENDING parcels
+            {% if user.is_staff %}
+            if (p.current_status === 'PENDING') {
+                html += `
+                    <div class="border-t pt-4">
+                        <button onclick="bookParcel(${id})" class="w-full btn btn-primary">
+                            Book Parcel
+                        </button>
+                    </div>
+                `;
+            }
+            {% endif %}
+            
             if (result.tracking_history && result.tracking_history.length > 0) {
                 html += `
                     <div class="border-t pt-4">
@@ -644,5 +673,37 @@ document.querySelector('[onclick="showModal(\'createModal\')"]').addEventListene
     document.getElementById('modalTitle').textContent = 'New Parcel';
     document.getElementById('parcelForm').reset();
 });
+
+// Book Parcel (Staff only)
+async function bookParcel(id) {
+    if (!confirm('Are you sure you want to book this parcel? This will generate an AWB number.')) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`/api/book-parcel/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const result = await response.json();
+        hideLoading();
+        
+        if (result.success) {
+            toast(`Parcel booked successfully! AWB: ${result.awb_number}`);
+            hideModal('viewModal');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            toast('Error: ' + (result.error || 'Failed to book parcel'));
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
 </script>
 {% endblock %}

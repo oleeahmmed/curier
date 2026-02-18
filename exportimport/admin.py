@@ -184,11 +184,11 @@ class ShipmentAdmin(ModelAdmin):
 
     list_display = [
         'awb_number', 'direction', 'customer', 'recipient_name',
-        'current_status', 'service_type', 'payment_status', 'created_at'
+        'current_status', 'service_type', 'payment_status', 'created_at', 'book_action'
     ]
 
     list_filter = [
-        'direction', 'current_status', 'service_type', 'payment_status',
+        'current_status', 'direction', 'service_type', 'payment_status',
         'payment_method', 'is_fragile', 'is_liquid', 'is_cod', 'created_at'
     ]
 
@@ -200,10 +200,72 @@ class ShipmentAdmin(ModelAdmin):
     readonly_fields = ['awb_number', 'created_at', 'updated_at', 'display_qrcode', 'display_barcode']
 
     autocomplete_fields = ['customer']
+    actions = ['book_parcels']
     # inlines = [TrackingEventInline]
 
     class Media:
         js = ('admin/js/shipment_autofill.js',)
+    
+    @display(description=_("Actions"), label=True)
+    def book_action(self, obj):
+        """Display Book button for PENDING shipments"""
+        if obj.current_status == 'PENDING':
+            return format_html(
+                '<a class="button" style="padding: 5px 10px; background-color: #417690; color: white; text-decoration: none; border-radius: 4px;" href="#">Book</a>'
+            )
+        return '-'
+    
+    def save_model(self, request, obj, form, change):
+        """Override save_model to set booked_by and create TrackingEvent on status change"""
+        # Track if status changed
+        status_changed = False
+        old_status = None
+        
+        if change and 'current_status' in form.changed_data:
+            status_changed = True
+            # Get old status from database
+            old_obj = Shipment.objects.get(pk=obj.pk)
+            old_status = old_obj.current_status
+        
+        # If status is changing to BOOKED and booked_by is not set, set it to current user
+        if obj.current_status == 'BOOKED' and not obj.booked_by:
+            obj.booked_by = request.user
+        
+        # Save the shipment (this will trigger AWB generation if needed)
+        super().save_model(request, obj, form, change)
+        
+        # Create TrackingEvent if status changed
+        if status_changed:
+            TrackingEvent.objects.create(
+                shipment=obj,
+                status=obj.current_status,
+                description=f'Status changed from {old_status} to {obj.get_current_status_display()} via admin panel',
+                location='Admin Panel',
+                updated_by=request.user
+            )
+    
+    def book_parcels(self, request, queryset):
+        """Admin action to book multiple pending parcels"""
+        pending_parcels = queryset.filter(current_status='PENDING')
+        count = 0
+        
+        for parcel in pending_parcels:
+            parcel.current_status = 'BOOKED'
+            parcel.booked_by = request.user
+            parcel.save()
+            
+            TrackingEvent.objects.create(
+                shipment=parcel,
+                status='BOOKED',
+                description='Parcel booked via admin panel bulk action',
+                location='Admin Panel',
+                updated_by=request.user
+            )
+            count += 1
+        
+        self.message_user(request, f'{count} parcel(s) booked successfully')
+    
+    book_parcels.short_description = 'Book selected pending parcels'
     
     @display(description=_("QR Code"))
     def display_qrcode(self, obj):

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shipping Label - {{ shipment.awb_number }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
+<style>
+    * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact;
+    }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        background-color: #f0f0f0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+    }
+
+    /* Print and PDF buttons */
+    .no-print {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .no-print button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+    }
+
+    .no-print button:hover {
+        background-color: #0056b3;
+    }
+
+    .label-container {
+        width: 900px; /* Increased from 850px for more space */
+        background: white;
+        border: 2px solid black;
+        padding: 5px;
+    }
+
+    /* --- Helper Utility Classes --- */
+    .flex { display: flex; }
+    .col { flex-direction: column; }
+    .row { flex-direction: row; }
+    .center { align-items: center; justify-content: center; }
+    .bold { font-weight: bold; }
+    .text-sm { font-size: 10px; margin-bottom: 2px; }
+    .text-md { font-size: 14px; }
+    .text-lg { font-size: 18px; }
+    .serif { font-family: "Times New Roman", Times, serif; }
+    
+    /* Borders */
+    .bt { border-top: 1px solid black; }
+    .bb { border-bottom: 1px solid black; }
+    .bl { border-left: 1px solid black; }
+    .br { border-right: 1px solid black; }
+    .b-thick-t { border-top: 2px solid black; }
+    .b-thick-b { border-bottom: 2px solid black; }
+
+    /* --- Header Section --- */
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 10px 5px;
+    }
+
+    /* Logo Recreation */
+    .logo-box {
+        border: 3px double black;
+        padding: 5px 15px;
+        text-align: center;
+        width: 180px;
+    }
+    .logo-text {
+        font-weight: 900;
+        font-size: 20px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    .logo-sub {
+        font-size: 8px;
+        font-weight: bold;
+        text-transform: uppercase;
+        border-top: 1px solid black;
+        margin-top: 2px;
+        padding-top: 2px;
+    }
+
+    /* Company Info */
+    .company-info {
+        text-align: center;
+        flex-grow: 1;
+    }
+    .company-name {
+        font-size: 24px;
+        margin: 0;
+        margin-bottom: 5px;
+        font-weight: normal;
+    }
+    .contact-details {
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    /* Barcode Section */
+    .barcode-section {
+        text-align: center;
+        width: 200px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .barcode-img {
+        max-width: 100%;
+        height: auto;
+        margin-bottom: 5px;
+    }
+    .tracking-number {
+        font-size: 14px;
+        font-family: "Times New Roman", Times, serif;
+        text-align: center;
+        letter-spacing: 0.5px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        line-height: 1.1;
+    }
+
+    /* --- Grid Layouts --- */
+    .grid-row-1 {
+        display: grid;
+        grid-template-columns: 100px 1fr 120px 80px 100px 100px 100px;
+    }
+    .cell {
+        padding: 3px;
+        border-right: 1px solid black;
+        height: 50px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .cell:last-child { border-right: none; }
+    
+    .cell-label {
+        font-size: 7px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 2px;
+    }
+    .cell-value {
+        font-size: 9px;
+        font-weight: 500;
+        text-align: center;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        line-height: 1.1;
+        padding: 0 2px;
+    }
+
+    /* Address Section */
+    .address-row {
+        display: flex;
+        height: 180px;
+    }
+    .half-width {
+        width: 50%;
+        padding: 5px;
+        overflow: hidden;
+    }
+    .address-text {
+        font-size: 11px;
+        line-height: 1.2;
+        margin-top: 5px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-height: 150px;
+        overflow: hidden;
+    }
+
+    /* Contact Row */
+    .contact-row {
+        display: flex;
+        height: 40px;
+    }
+    .contact-cell {
+        width: 25%;
+        padding: 2px 3px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        border-right: 1px solid black;
+    }
+    .contact-cell:last-child {
+        border-right: none;
+    }
+    .contact-cell .text-sm {
+        font-size: 7px;
+        margin-bottom: 2px;
+    }
+    .contact-cell .cell-value {
+        font-size: 9px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        text-align: center;
+        max-width: 100%;
+        line-height: 1.1;
+        padding: 0 2px;
+    }
+
+    /* Lower Section (Goods, Billing, Dims) */
+    .details-grid {
+        display: flex;
+        height: 200px;
+    }
+    .col-goods {
+        width: 50%;
+        padding: 5px;
+        border-right: 1px solid black;
+    }
+    .col-billing {
+        width: 25%;
+        border-right: 1px solid black;
+        display: flex;
+        flex-direction: column;
+    }
+    .col-dims {
+        width: 25%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .billing-box {
+        flex: 1;
+        padding: 5px;
+        font-size: 10px;
+    }
+    .checkbox-group {
+        margin-top: 5px;
+        font-size: 11px;
+        line-height: 1.4;
+    }
+    .checkbox {
+        display: inline-block;
+        font-size: 14px;
+        vertical-align: middle;
+        margin-right: 2px;
+    }
+
+    .dims-top {
+        height: 100px;
+        padding: 5px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .dims-bottom {
+        flex: 1;
+        padding: 5px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    .dims-top .cell-value,
+    .dims-bottom .cell-value {
+        font-size: 10px;
+        margin-top: 10px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+        padding: 0 5px;
+        line-height: 1.1;
+    }
+
+    .goods-text {
+        font-size: 11px;
+        margin-top: 5px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-height: 170px;
+        overflow: hidden;
+        line-height: 1.2;
+    }
+
+    .footer {
+        font-size: 9px;
+        text-align: center;
+        padding: 2px;
+        border-top: 1px solid black;
+    }
+
+    /* Print media query to hide .no-print elements */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        body {
+            background-color: white;
+            padding: 0;
+            margin: 0;
+        }
+        .label-container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            page-break-inside: avoid;
+        }
+        * {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+</head>
+<body>
+
+    <!-- Print and Save as PDF buttons -->
+    <div class="no-print">
+        <button onclick="window.print()">Print</button>
+        <button onclick="window.print()">Save as PDF</button>
+    </div>
+
+    <div class="label-container">
+        
+        <div class="header">
+            <div class="logo-box">
+                <div class="logo-text serif">CORNICHE</div>
+                <div class="logo-sub">International Couriers</div>
+            </div>
+
+            <div class="company-info serif">
+                <h1 class="company-name">CORNICHE INTERNATIONAL LIMITED</h1>
+                <div class="contact-details">
+                    Tel: (852) 2754 8600 &nbsp;&nbsp; Fax: (852) 2754 8611<br>
+                    E-mail: customer@corniche.com.hk<br>
+                    https://www.corniche.com.hk
+                </div>
+            </div>
+
+            <div class="barcode-section">
+                <img src="{{ barcode_url }}" alt="Barcode" class="barcode-img">
+            </div>
+        </div>
+
+        <div class="grid-row-1 b-thick-t bb">
+            <div class="cell">
+                <div class="cell-label center">Date</div>
+                <div class="cell-value bold">{{ formatted_date }}</div>
+            </div>
+            <div class="cell">
+                <div class="cell-label center">Shipper Reference</div>
+                <div class="cell-value"></div>
+            </div>
+            <div class="cell">
+                <div class="cell-label center">Shipper Account No.</div>
+                <div class="cell-value bold">{{ shipment.customer.id|default:"N/A" }}</div>
+            </div>
+            <div class="cell">
+                <div class="cell-label center">No. of Package</div>
+                <div class="cell-value bold">1</div>
+            </div>
+            <div class="cell">
+                <div class="cell-label center">Actual Weight (Kgs)</div>
+                <div class="cell-value bold">{{ shipment.weight_estimated }}</div>
+            </div>
+            <div class="cell">
+                <div class="cell-label center">Origin</div>
+                <div class="cell-value">{{ shipment.sender_country|upper }}</div>
+            </div>
+            <div class="cell">
+                <div class="cell-label center">Destination</div>
+                <div class="cell-value">{{ shipment.recipient_country|upper }}</div>
+            </div>
+        </div>
+
+        <div class="address-row bb">
+            <div class="half-width br">
+                <div class="text-sm">From (Shipper)</div>
+                <div class="address-text">
+                    <strong>{{ shipment.sender_name }}</strong><br>
+                    {{ shipment.sender_address|linebreaksbr }}<br>
+                    {{ shipment.sender_country|upper }}
+                </div>
+            </div>
+            <div class="half-width">
+                <div class="text-sm">To (Recipient)</div>
+                <div class="address-text">
+                    <strong>{{ shipment.recipient_name }}</strong><br>
+                    {{ shipment.recipient_address|linebreaksbr }}<br>
+                    {{ shipment.recipient_country|upper }}
+                </div>
+            </div>
+        </div>
+
+        <div class="contact-row bb">
+            <div class="contact-cell">
+                <div class="text-sm">Phone Number</div>
+                <div class="cell-value">{{ shipment.sender_phone }}</div>
+            </div>
+            <div class="contact-cell">
+                <div class="text-sm">Shipper's Name</div>
+                <div class="cell-value">{{ shipment.sender_name }}</div>
+            </div>
+            <div class="contact-cell">
+                <div class="text-sm">Phone Number</div>
+                <div class="cell-value">{{ shipment.recipient_phone }}</div>
+            </div>
+            <div class="contact-cell">
+                <div class="text-sm">Recipient's Name</div>
+                <div class="cell-value">{{ shipment.recipient_name }}</div>
+            </div>
+        </div>
+
+        <div class="details-grid b-thick-t">
+            <div class="col-goods">
+                <div class="text-sm center">Description Of Goods</div>
+                <div class="goods-text">{{ shipment.contents }}</div>
+            </div>
+
+            <div class="col-billing">
+                <div class="billing-box bb">
+                    <div class="text-sm center bold" style="text-decoration: underline;">Bill Transportation Charge to:</div>
+                    <div class="checkbox-group">
+                        <span class="checkbox">{% if shipment.payment_method == 'PREPAID' or shipment.payment_method == 'CASH' or shipment.payment_method == 'CREDIT' %}&#9746;{% else %}&#9744;{% endif %}</span>Shipper 
+                        <span class="checkbox">{% if shipment.payment_method == 'COD' %}&#9746;{% else %}&#9744;{% endif %}</span>Recipient 
+                        <span class="checkbox">&#9744;</span>3rd Party
+                    </div>
+                    <div style="margin-top:10px;">A/C No:</div>
+                </div>
+                <div class="billing-box">
+                    <div class="text-sm center bold" style="text-decoration: underline;">Bill Duties and Taxes to:</div>
+                    <div class="checkbox-group">
+                        <span class="checkbox">&#9744;</span>Shipper 
+                        <span class="checkbox">&#9746;</span>Recipient 
+                        <span class="checkbox">&#9744;</span>3rd Party
+                    </div>
+                    <div style="margin-top:10px;">A/C No:</div>
+                </div>
+            </div>
+
+            <div class="col-dims">
+                <div class="dims-top bb">
+                    <div class="text-sm center">Dimensions (L x W x H) cm</div>
+                    <div class="cell-value" style="margin-top: 20px;">{{ dimensions }}</div>
+                </div>
+                <div class="dims-bottom">
+                    <div class="text-sm center">Total Amount</div>
+                    <div class="cell-value" style="margin-top: 20px;">{{ shipment.declared_value }} {{ shipment.declared_currency }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            This consignment note is non-negotiable, and subject to our standard conditions of carriage shown on the hereof which limit and exclude our liability.
+        </div>
+
+    </div>
+
+</body>
+</html>

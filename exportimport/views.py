@@ -87,7 +87,7 @@ def scan_home(request):
     context = {
         'user': request.user,
         'user_role': user_role,
-        'recent_scans': Shipment.objects.all().order_by('-updated_at')[:10]
+        'recent_scans': Shipment.objects.exclude(current_status='PENDING').order_by('-updated_at')[:10]
     }
     return render(request, 'exportimport/scan_home.html', context)
 
@@ -374,12 +374,16 @@ def all_shipments(request):
 # ==================== PARCEL BOOKING (Non-Staff Users) ====================
 @login_required(login_url='login')
 def parcel_booking(request):
-    """Parcel booking page for non-staff users"""
-    # Get user's parcels only
+    """Parcel booking page for customers and staff"""
+    # Staff can see all parcels, customers see only their own
     if request.user.is_staff:
-        return redirect('scan_home')
-    
-    parcels = Shipment.objects.filter(booked_by=request.user).order_by('-created_at')
+        parcels = Shipment.objects.all().order_by('-created_at')
+    else:
+        # Customers see parcels linked to their customer profile
+        if hasattr(request.user, 'customer'):
+            parcels = Shipment.objects.filter(customer=request.user.customer).order_by('-created_at')
+        else:
+            parcels = Shipment.objects.none()
     
     context = {
         'user': request.user,
@@ -621,6 +625,161 @@ def delete_parcel(request, parcel_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+def book_parcel(request, parcel_id):
+    """Book a pending parcel - Staff only"""
+    try:
+        # Fetch shipment by ID
+        shipment = get_object_or_404(Shipment, id=parcel_id)
+
+        # Validate current status is PENDING
+        if shipment.current_status != 'PENDING':
+            return JsonResponse({
+                'success': False,
+                'error': f'Cannot book parcel with status {shipment.get_current_status_display()}'
+            }, status=400)
+
+        # Validate required fields before booking
+        required_fields = {
+            'sender_name': shipment.sender_name,
+            'sender_phone': shipment.sender_phone,
+            'sender_address': shipment.sender_address,
+            'recipient_name': shipment.recipient_name,
+            'recipient_phone': shipment.recipient_phone,
+            'recipient_address': shipment.recipient_address,
+            'contents': shipment.contents,
+            'weight_estimated': shipment.weight_estimated,
+            'declared_value': shipment.declared_value
+        }
+
+        missing_fields = [field_name for field_name, field_value in required_fields.items()
+                         if not field_value or (isinstance(field_value, str) and not field_value.strip())]
+
+        if missing_fields:
+            # Format field names for user-friendly display
+            formatted_fields = [field.replace('_', ' ').title() for field in missing_fields]
+            return JsonResponse({
+                'success': False,
+                'error': 'Missing required fields',
+                'missing_fields': formatted_fields
+            }, status=400)
+
+        # Change status to BOOKED and set booked_by to current user
+        shipment.current_status = 'BOOKED'
+        shipment.booked_by = request.user
+
+        # Save shipment (triggers AWB generation)
+        shipment.save()
+
+        # Create TrackingEvent
+        TrackingEvent.objects.create(
+            shipment=shipment,
+            status='BOOKED',
+            description='Parcel booked by staff',
+            location=request.POST.get('location', 'Staff Dashboard'),
+            updated_by=request.user
+        )
+
+        # Generate invoice URL
+        from django.urls import reverse
+        invoice_url = reverse('invoice_view', kwargs={'shipment_id': shipment.id})
+
+        return JsonResponse({
+            'success': True,
+            'awb_number': shipment.awb_number,
+            'invoice_url': invoice_url,
+            'message': f'Parcel booked successfully with AWB: {shipment.awb_number}'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# ==================== PENDING PARCELS VIEW (Staff Only) ====================
+@login_required(login_url='login')
+@staff_member_required
+def pending_parcels(request):
+    """View all pending parcels - Staff only"""
+    # Query all shipments with PENDING status, ordered by creation date (newest first)
+    pending_shipments = Shipment.objects.filter(
+        current_status='PENDING'
+    ).order_by('-created_at')
+
+    context = {
+        'pending_shipments': pending_shipments,
+    }
+
+    return render(request, 'exportimport/pending_parcels.html', context)
+
+
+# ==================== PARCEL DETAILS VIEW ====================
+@login_required(login_url='login')
+def parcel_details(request, parcel_id):
+    """Display parcel details page"""
+    shipment = get_object_or_404(Shipment, id=parcel_id)
+    
+    # Check ownership for non-staff
+    if not request.user.is_staff:
+        if not hasattr(request.user, 'customer') or shipment.customer != request.user.customer:
+            return render(request, 'exportimport/base.html', {
+                'error_message': 'You do not have permission to view this parcel'
+            }, status=403)
+    
+    # Get tracking history
+    tracking_events = shipment.tracking_events.all().order_by('-timestamp')
+    
+    context = {
+        'shipment': shipment,
+        'tracking_events': tracking_events,
+        'can_edit': request.user.is_staff or shipment.current_status == 'PENDING',
+        'can_book': request.user.is_staff and shipment.current_status == 'PENDING',
+    }
+    
+    return render(request, 'exportimport/parcel_details.html', context)
+
+
+# ==================== INVOICE VIEW ====================
+@login_required(login_url='login')
+def invoice_view(request, shipment_id):
+    """Display invoice for a shipment"""
+    # Fetch shipment by ID
+    shipment = get_object_or_404(Shipment, id=shipment_id)
+    
+    # Check authorization: customer can only view own shipments, staff can view any
+    if not request.user.is_staff:
+        if not hasattr(request.user, 'customer') or shipment.customer != request.user.customer:
+            return render(request, 'exportimport/base.html', {
+                'error_message': 'You do not have permission to view this invoice'
+            }, status=403)
+    
+    # Validate shipment status is not PENDING (return error page if PENDING)
+    if shipment.current_status == 'PENDING':
+        return render(request, 'exportimport/base.html', {
+            'error_message': 'Invoice not available for pending shipments'
+        }, status=403)
+    
+    # Validate shipment has AWB number (return error page if missing)
+    if not shipment.awb_number:
+        return render(request, 'exportimport/base.html', {
+            'error_message': 'Invoice cannot be generated without AWB number'
+        }, status=400)
+    
+    # Prepare context with shipment, barcode_url, qrcode_url, formatted_date, dimensions
+    context = {
+        'shipment': shipment,
+        'barcode_url': shipment.get_barcode_url(),
+        'qrcode_url': shipment.get_qrcode_url(),
+        'formatted_date': shipment.created_at.strftime('%d/%m/%Y'),
+        'dimensions': f"{shipment.length or 0}cm x {shipment.width or 0}cm x {shipment.height or 0}cm" if shipment.length else 'N/A',
+    }
+    
+    # Render exportimport/invoice.html template
+    return render(request, 'exportimport/invoice.html', context)
+
 
 
 # ==================== BAG MANAGEMENT (Staff Only) ====================

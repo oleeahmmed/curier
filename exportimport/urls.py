@@ -25,8 +25,18 @@ urlpatterns = [
     path('parcels/', views.parcel_booking, name='parcel_booking'),
     path('parcels/create/', views.create_parcel, name='create_parcel'),
     path('parcels/<int:parcel_id>/', views.get_parcel, name='get_parcel'),
+    path('parcels/<int:parcel_id>/details/', views.parcel_details, name='parcel_details'),
     path('parcels/<int:parcel_id>/update/', views.update_parcel, name='update_parcel'),
     path('parcels/<int:parcel_id>/delete/', views.delete_parcel, name='delete_parcel'),
+    
+    # Parcel Booking API (Staff)
+    path('api/book-parcel/<int:parcel_id>/', views.book_parcel, name='book_parcel'),
+    
+    # Pending Parcels (Staff)
+    path('pending-parcels/', views.pending_parcels, name='pending_parcels'),
+    
+    # Invoice View
+    path('invoice/<int:shipment_id>/', views.invoice_view, name='invoice_view'),
     
     # Bag Management (Staff)
     path('bags/', views.bags_view, name='bags'),

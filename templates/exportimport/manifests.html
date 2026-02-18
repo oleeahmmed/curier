@@ -114,77 +114,45 @@
     </button>
 </div>
 
-<!-- Manifests Grid -->
+<!-- Manifests List -->
 <div class="card">
     <div class="card-body">
         {% if manifests %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for manifest in manifests %}
-            <div onclick="viewManifestDetails({{ manifest.id }})" class="group relative border border-gray-200 rounded-lg p-4 hover:border-black hover:shadow-md transition-all cursor-pointer bg-white">
-                <div class="flex items-start justify-between mb-3">
-                    <div class="flex-1">
-                        <p class="text-xs text-gray-500 mb-1">Manifest</p>
-                        <p class="text-sm font-semibold text-black">{{ manifest.manifest_number }}</p>
-                    </div>
-                    <span class="status-badge {% if manifest.status == 'DRAFT' %}status-pending{% elif manifest.status == 'FINALIZED' %}status-booked{% elif manifest.status == 'DEPARTED' %}status-transit{% else %}status-delivered{% endif %} text-xs">
-                        {{ manifest.get_status_display }}
-                    </span>
-                </div>
-                
-                <div class="space-y-2 text-xs mb-3">
-                    <div class="flex items-center gap-2">
-                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                        </svg>
-                        <span class="text-gray-600">{{ manifest.flight_number }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
-                        <span class="text-gray-600">{{ manifest.departure_date|date:"M d, Y" }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                        </svg>
-                        <span class="text-gray-600">{{ manifest.total_bags }} Bags • {{ manifest.total_weight }} KG</span>
-                    </div>
-                    {% if manifest.bags.all %}
-                    <div class="flex items-center gap-2">
-                        <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                        </svg>
-                        <span class="text-blue-600 truncate font-medium">
-                            {% for bag in manifest.bags.all|slice:":2" %}
-                                {{ bag.bag_number }}{% if not forloop.last %}, {% endif %}
-                            {% endfor %}
-                            {% if manifest.bags.count > 2 %}...{% endif %}
-                        </span>
-                    </div>
-                    {% endif %}
-                    {% with first_bag=manifest.bags.first %}
-                    {% if first_bag.shipment %}
-                    <div class="flex items-center gap-2">
-                        <svg class="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                        <span class="text-green-600 truncate font-medium">{{ first_bag.shipment.awb_number }}{% if manifest.bags.count > 1 %} +{{ manifest.bags.count|add:"-1" }}{% endif %}</span>
-                    </div>
-                    {% endif %}
-                    {% endwith %}
-                </div>
-                
-                <div class="flex items-center justify-end pt-3 border-t border-gray-100">
-                    <div class="flex items-center gap-1 text-gray-400 group-hover:text-black transition-colors">
-                        <span class="text-xs font-medium">View Details</span>
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manifest Number</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Flight</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Departure Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bags</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weight</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for manifest in manifests %}
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="viewManifestDetails({{ manifest.id }})">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ manifest.manifest_number }}</td>
+                        <td class="px-4 py-3">
+                            <span class="status-badge {% if manifest.status == 'DRAFT' %}status-pending{% elif manifest.status == 'FINALIZED' %}status-booked{% elif manifest.status == 'DEPARTED' %}status-transit{% else %}status-delivered{% endif %} text-xs">
+                                {{ manifest.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ manifest.flight_number }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ manifest.departure_date|date:"M d, Y" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ manifest.total_bags }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ manifest.total_weight }} KG</td>
+                        <td class="px-4 py-3">
+                            <button onclick="event.stopPropagation(); viewManifestDetails({{ manifest.id }})" class="text-xs text-black hover:text-gray-600 font-medium">
+                                View
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% else %}
         <div class="text-center py-12">
