@@ -1,10 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 import uuid
+import qrcode
+import barcode
+from barcode.writer import ImageWriter
+import io
+import base64
+import re
 
 
-# ==================== CUSTOMER ====================
 class Customer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
@@ -29,14 +35,11 @@ class Customer(models.Model):
         ordering = ['-created_at']
 
 
-# ==================== SHIPMENT ====================
 class Shipment(models.Model):
-    # Direction
     DIRECTION_CHOICES = [
         ('BD_TO_HK', 'Bangladesh to Hong Kong'),
     ]
     
-    # Status for BD → HK
     STATUS_BD_TO_HK = [
         ('PENDING', 'PENDING'),
         ('BOOKED', 'Booked'),
@@ -50,7 +53,6 @@ class Shipment(models.Model):
         ('DELIVERED_IN_HK', 'Delivered in Hong Kong'),
     ]
     
-    # Combined Status
     STATUS_CHOICES = STATUS_BD_TO_HK + [
         ('EXCEPTION_DAMAGED', 'Exception - Damaged'),
         ('EXCEPTION_CUSTOMS_HOLD', 'Exception - Customs Hold'),
@@ -68,25 +70,21 @@ class Shipment(models.Model):
         ('STANDARD', 'Standard'),
     ]
     
-    # === BASIC INFO ===
     awb_number = models.CharField(max_length=50, unique=True, editable=False, blank=True, null=True)
     external_awb = models.CharField(max_length=50, blank=True, null=True, help_text="External AWB (from HK/Airline)")
     direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='shipments', null=True, blank=True)
     
-    # === SENDER INFO ===
     sender_name = models.CharField(max_length=200)
     sender_phone = models.CharField(max_length=20)
     sender_address = models.TextField()
     sender_country = models.CharField(max_length=100, default='Bangladesh')
     
-    # === RECIPIENT INFO ===
     recipient_name = models.CharField(max_length=200)
     recipient_phone = models.CharField(max_length=20)
     recipient_address = models.TextField()
     recipient_country = models.CharField(max_length=100, default='Hong Kong')
     
-    # === PARCEL DETAILS ===
     contents = models.TextField(help_text="Parcel contents")
     declared_value = models.DecimalField(max_digits=10, decimal_places=2)
     declared_currency = models.CharField(
@@ -105,11 +103,9 @@ class Shipment(models.Model):
     width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="CM")
     height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="CM")
     
-    # === SERVICE & STATUS ===
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES, default='EXPRESS')
     current_status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='BOOKED')
     
-    # === PAYMENT ===
     payment_method = models.CharField(
         max_length=20,
         choices=[
@@ -122,40 +118,30 @@ class Shipment(models.Model):
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='PENDING')
     shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
-    # COD
     is_cod = models.BooleanField(default=False)
     cod_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     
-    # === SPECIAL HANDLING ===
     is_fragile = models.BooleanField(default=False)
     is_liquid = models.BooleanField(default=False)
     special_instructions = models.TextField(blank=True, null=True)
     
-    # === LINKING (For BD → HK) ===
-    # Removed: bag ForeignKey - now using ManyToMany from Bag model
-    
-    # === HK REFERENCE (For HK → BD) ===
     hk_reference = models.CharField(max_length=100, blank=True, null=True, help_text="HK warehouse reference")
     mawb_number = models.CharField(max_length=50, blank=True, null=True, help_text="Master AWB")
     
-    # === TIMESTAMPS ===
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     booked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='booked_shipments')
     
     def save(self, *args, **kwargs):
-        # Generate AWB only if status is not PENDING and AWB doesn't exist
         if not self.awb_number and self.current_status != 'PENDING':
-            # Generate AWB based on direction
             date_str = timezone.now().strftime('%Y%m%d')
             random_num = str(uuid.uuid4().int)[:5]
             
             if self.direction == 'BD_TO_HK':
-                self.awb_number = f"DH{date_str}{random_num}"  # Dhaka to HK
+                self.awb_number = f"DH{date_str}{random_num}"
             else:
-                self.awb_number = f"HD{date_str}{random_num}"  # HK to Dhaka
+                self.awb_number = f"HD{date_str}{random_num}"
         
-        # Auto-set sender/recipient country based on direction
         if self.direction == 'BD_TO_HK':
             self.sender_country = 'Bangladesh'
             self.recipient_country = 'Hong Kong'
@@ -166,11 +152,6 @@ class Shipment(models.Model):
         super().save(*args, **kwargs)
     
     def get_qrcode_url(self):
-        """Generate QR code data URL for AWB number"""
-        import qrcode
-        import io
-        import base64
-        
         qr = qrcode.QRCode(version=1, box_size=10, border=2)
         qr.add_data(self.awb_number)
         qr.make(fit=True)
@@ -184,12 +165,6 @@ class Shipment(models.Model):
         return f"data:image/png;base64,{img_str}"
     
     def get_barcode_url(self):
-        """Generate barcode data URL for AWB number"""
-        import barcode
-        from barcode.writer import ImageWriter
-        import io
-        import base64
-        
         code128 = barcode.get_barcode_class('code128')
         barcode_instance = code128(self.awb_number, writer=ImageWriter())
         
@@ -207,7 +182,6 @@ class Shipment(models.Model):
         ordering = ['-created_at']
 
 
-# ==================== BAG (Only for BD → HK) ====================
 class Bag(models.Model):
     STATUS_CHOICES = [
         ('OPEN', 'Open'),
@@ -215,75 +189,295 @@ class Bag(models.Model):
         ('IN_MANIFEST', 'In Manifest'),
         ('DISPATCHED', 'Dispatched'),
     ]
-    
+
     bag_number = models.CharField(max_length=50, unique=True)
-    shipment = models.OneToOneField('Shipment', on_delete=models.CASCADE, related_name='bag', null=True, blank=True, help_text="One shipment per bag")
+    shipment = models.ManyToManyField('Shipment', related_name='bags', blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
     weight = models.DecimalField(max_digits=8, decimal_places=2, default=0, help_text="Bag weight in KG")
-    
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_bags', help_text="Staff who created the bag")
+    created_at = models.DateTimeField(auto_now_add=True)
+
     sealed_at = models.DateTimeField(null=True, blank=True)
     sealed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sealed_bags')
-    created_at = models.DateTimeField(auto_now_add=True)
-    
+
+    unsealed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='unsealed_bags', help_text="Staff who unsealed the bag")
+    unsealed_at = models.DateTimeField(null=True, blank=True, help_text="When the bag was unsealed")
+    unseal_reason = models.TextField(blank=True, null=True, help_text="Reason for unsealing the bag")
+
+    def _generate_bag_number(self):
+        """
+        Generate next sequential bag number.
+        Format: HDK-BAG-XXXXXX where XXXXXX is zero-padded 6-digit number
+        
+        This allows for up to 999,999 bags before needing format changes.
+        
+        Examples:
+        - First bag: HDK-BAG-000001
+        - After HDK-BAG-000009: HDK-BAG-000010
+        - After HDK-BAG-000099: HDK-BAG-000100
+        - After HDK-BAG-999999: HDK-BAG-1000000 (expands beyond 6 digits)
+        """
+        from django.db.models import Max
+        
+        # Get the latest bag number
+        latest_bag = Bag.objects.filter(
+            bag_number__startswith='HDK-BAG-'
+        ).aggregate(Max('bag_number'))
+        
+        latest_number = latest_bag['bag_number__max']
+        
+        if latest_number:
+            # Extract numeric part using regex
+            match = re.search(r'HDK-BAG-(\d+)', latest_number)
+            if match:
+                next_number = int(match.group(1)) + 1
+            else:
+                next_number = 1
+        else:
+            next_number = 1
+        
+        # Format with zero-padding (minimum 6 digits, expands if needed)
+        return f"HDK-BAG-{next_number:06d}"
+
+    def save(self, *args, **kwargs):
+        """Override save to auto-generate bag_number if not set"""
+        if not self.bag_number:
+            self.bag_number = self._generate_bag_number()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Override delete to revert parcel statuses for OPEN bags"""
+        if self.status != 'OPEN':
+            raise ValidationError(
+                f"Cannot delete bag with status {self.status}. "
+                "Only OPEN bags can be deleted."
+            )
+
+        # Revert all shipments to previous status
+        for shipment in self.shipment.all():
+            shipment.current_status = 'RECEIVED_AT_BD'
+            shipment.save()
+
+            TrackingEvent.objects.create(
+                shipment=shipment,
+                status='RECEIVED_AT_BD',
+                description=f"Removed from deleted bag {self.bag_number}",
+                location='Bangladesh Warehouse',
+                updated_by=None  # System action
+            )
+
+        super().delete(*args, **kwargs)
+
+    def calculate_total_weight(self):
+        """Calculate total weight from all shipments in the bag"""
+        from django.db.models import Sum
+        total = self.shipment.aggregate(total_weight=Sum('weight_estimated'))['total_weight']
+        return total or 0
+
+    def update_weight(self):
+        """Update bag weight based on shipments"""
+        self.weight = self.calculate_total_weight()
+        self.save(update_fields=['weight'])
+
     def get_qrcode_url(self):
-        """Generate QR code - same as shipment's AWB"""
-        if self.shipment:
-            return self.shipment.get_qrcode_url()
-        
-        # If no shipment, generate for bag number
-        import qrcode
-        import io
-        import base64
-        
+        """Generate QR code for bag number"""
         qr = qrcode.QRCode(version=1, box_size=10, border=2)
         qr.add_data(self.bag_number)
         qr.make(fit=True)
-        
+
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = io.BytesIO()
         img.save(buffer, format='PNG')
         buffer.seek(0)
-        
+
         img_str = base64.b64encode(buffer.getvalue()).decode()
         return f"data:image/png;base64,{img_str}"
-    
+
     def get_barcode_url(self):
-        """Generate barcode - same as shipment's AWB"""
-        if self.shipment:
-            return self.shipment.get_barcode_url()
-        
-        # If no shipment, generate for bag number
-        import barcode
-        from barcode.writer import ImageWriter
-        import io
-        import base64
-        
+        """Generate barcode for bag number"""
         code128 = barcode.get_barcode_class('code128')
         barcode_instance = code128(self.bag_number, writer=ImageWriter())
-        
+
         buffer = io.BytesIO()
         barcode_instance.write(buffer)
         buffer.seek(0)
-        
+
         img_str = base64.b64encode(buffer.getvalue()).decode()
         return f"data:image/png;base64,{img_str}"
-    
+
+    def get_item_count(self):
+        """Get count of shipments in bag"""
+        return self.shipment.count()
+
+    def calculate_total_weight(self):
+        """Calculate total weight from all shipments in the bag"""
+        from django.db.models import Sum
+        total = self.shipment.aggregate(total_weight=Sum('weight_estimated'))['total_weight']
+        return total or 0
+
+    def update_weight(self):
+        """Update bag weight from shipments"""
+        self.weight = self.calculate_total_weight()
+        self.save(update_fields=['weight'])
+
+
     def seal_bag(self, user):
+        if self.shipment.count() == 0:
+            raise ValidationError("Cannot seal empty bag")
+        
         self.status = 'SEALED'
         self.sealed_at = timezone.now()
         self.sealed_by = user
         self.save()
+        
+        # Generate air invoice PDF
+        from .services import generate_air_invoice_for_bag
+        generate_air_invoice_for_bag(self, user)
+        
+        for shipment in self.shipment.all():
+            TrackingEvent.objects.create(
+                shipment=shipment,
+                status='BAGGED_FOR_EXPORT',
+                description=f"Bag {self.bag_number} sealed",
+                location='Bangladesh Warehouse',
+                updated_by=user
+            )
     
+    def unseal_bag(self, user, reason):
+        if self.status in ['IN_MANIFEST', 'DISPATCHED']:
+            raise ValidationError(
+                "Cannot unseal bag that is in manifest or dispatched"
+            )
+        
+        if self.status != 'SEALED':
+            raise ValidationError(
+                f"Can only unseal SEALED bags (current status: {self.status})"
+            )
+        
+        if not reason or not reason.strip():
+            raise ValidationError("Reason is required to unseal bag")
+        
+        self.status = 'OPEN'
+        self.unsealed_by = user
+        self.unsealed_at = timezone.now()
+        self.unseal_reason = reason
+        self.save()
+        
+        if hasattr(self, 'air_invoice') and self.air_invoice:
+            if self.air_invoice.pdf_file:
+                self.air_invoice.pdf_file.delete(save=False)
+            self.air_invoice.delete()
+        
+        for shipment in self.shipment.all():
+            TrackingEvent.objects.create(
+                shipment=shipment,
+                status='BAGGED_FOR_EXPORT',
+                description=f"Bag {self.bag_number} unsealed - Reason: {reason}",
+                location='Bangladesh Warehouse',
+                updated_by=user
+            )
+
+    def add_shipment(self, shipment, user):
+        if shipment.current_status not in ['BOOKED', 'RECEIVED_AT_BD']:
+            raise ValidationError(
+                f"Parcel {shipment.awb_number} cannot be added. "
+                f"Status must be BOOKED or RECEIVED_AT_BD (current: {shipment.current_status})"
+            )
+
+        existing_bags = shipment.bags.all()
+        if existing_bags.exists():
+            existing_bag = existing_bags.first()
+            raise ValidationError(
+                f"Parcel {shipment.awb_number} is already in {existing_bag.bag_number}"
+            )
+
+        new_weight = self.weight + shipment.weight_estimated
+        weight_warning = None
+        if hasattr(self, 'max_weight') and self.max_weight and new_weight > self.max_weight:
+            weight_warning = (
+                f"Adding this parcel will exceed bag weight limit "
+                f"({self.weight} + {shipment.weight_estimated} > {self.max_weight} KG). Continue?"
+            )
+
+        self.shipment.add(shipment)
+
+        shipment.current_status = 'BAGGED_FOR_EXPORT'
+        shipment.save()
+
+        self.weight = new_weight
+        self.save()
+
+        TrackingEvent.objects.create(
+            shipment=shipment,
+            status='BAGGED_FOR_EXPORT',
+            description=f"Added to {self.bag_number}",
+            location='Bangladesh Warehouse',
+            updated_by=user
+        )
+
+        return weight_warning
+
+    def remove_shipment(self, shipment, user):
+        if self.status != 'OPEN':
+            raise ValidationError(
+                f"Cannot modify sealed bag. Unseal first if needed."
+            )
+        
+        if not self.shipment.filter(id=shipment.id).exists():
+            raise ValidationError(
+                f"Parcel {shipment.awb_number} is not in this bag"
+            )
+        
+        previous_status = 'RECEIVED_AT_BD'
+        
+        self.shipment.remove(shipment)
+        
+        shipment.current_status = previous_status
+        shipment.save()
+        
+        self.weight -= shipment.weight_estimated
+        if self.weight < 0:
+            self.weight = 0
+        self.save()
+        
+        TrackingEvent.objects.create(
+            shipment=shipment,
+            status=previous_status,
+            description=f"Removed from {self.bag_number}",
+            location='Bangladesh Warehouse',
+            updated_by=user
+        )
+    
+    def get_item_count(self):
+        """Get the number of shipments in this bag"""
+        return self.shipment.count()
+
     def __str__(self):
-        if self.shipment:
-            return f"{self.bag_number} - {self.shipment.awb_number}"
         return f"{self.bag_number}"
-    
+
     class Meta:
         ordering = ['-created_at']
 
 
-# ==================== MANIFEST (Only for BD → HK) ====================
+class AirInvoice(models.Model):
+    bag = models.OneToOneField(Bag, on_delete=models.CASCADE, related_name='air_invoice')
+    invoice_number = models.CharField(max_length=50, unique=True)
+    pdf_file = models.FileField(upload_to='air_invoices/')
+    page_count = models.IntegerField(help_text="Number of pages in PDF (equals number of parcels)")
+    
+    generated_at = models.DateTimeField(auto_now_add=True)
+    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    def __str__(self):
+        return f"Invoice {self.invoice_number} for {self.bag.bag_number}"
+    
+    class Meta:
+        verbose_name = 'Air Invoice'
+        verbose_name_plural = 'Air Invoices'
+        ordering = ['-generated_at']
+
+
 class Manifest(models.Model):
     STATUS_CHOICES = [
         ('DRAFT', 'Draft'),
@@ -325,12 +519,10 @@ class Manifest(models.Model):
         self.finalized_by = user
         self.finalized_at = timezone.now()
         
-        # Update bags
         for bag in self.bags.all():
             bag.status = 'IN_MANIFEST'
             bag.save()
             
-            # Update shipments
             for shipment in bag.shipments.all():
                 shipment.current_status = 'IN_EXPORT_MANIFEST'
                 shipment.save()
@@ -351,7 +543,6 @@ class Manifest(models.Model):
         ordering = ['-departure_date', '-departure_time']
 
 
-# ==================== TRACKING EVENTS ====================
 class TrackingEvent(models.Model):
     shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='tracking_events')
     status = models.CharField(max_length=50)
@@ -369,7 +560,6 @@ class TrackingEvent(models.Model):
         ordering = ['-timestamp']
 
 
-# ==================== DELIVERY PROOF ====================
 class DeliveryProof(models.Model):
     shipment = models.OneToOneField(Shipment, on_delete=models.CASCADE, related_name='delivery_proof')
     
@@ -385,7 +575,6 @@ class DeliveryProof(models.Model):
         return f"POD for {self.shipment.awb_number}"
 
 
-# ==================== EXCEPTIONS ====================
 class ShipmentException(models.Model):
     EXCEPTION_TYPES = [
         ('DAMAGED', 'Damaged'),
@@ -426,7 +615,6 @@ class ShipmentException(models.Model):
         ordering = ['-reported_at']
 
 
-# ==================== LOCATION ====================
 class Location(models.Model):
     LOCATION_TYPES = [
         ('WAREHOUSE', 'Warehouse'),
@@ -446,7 +634,6 @@ class Location(models.Model):
         return f"{self.name} - {self.city}, {self.country}"
 
 
-# ==================== STAFF PROFILE ====================
 class StaffProfile(models.Model):
     ROLE_CHOICES = [
         ('BD_STAFF', 'Bangladesh Operations Staff'),

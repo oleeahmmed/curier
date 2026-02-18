@@ -35,6 +35,36 @@
 {% endblock %}
 
 {% block content %}
+<!-- Current Bag Context Banner -->
+{% if current_bag %}
+<div class="card mb-4 bg-blue-50 border-2 border-blue-200">
+    <div class="card-body p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-blue-600 font-semibold mb-0.5">Current Bag</p>
+                    <p class="text-lg font-bold text-blue-900">{{ current_bag.bag_number }}</p>
+                    <p class="text-xs text-blue-700">{{ current_bag.get_item_count }} items • {{ current_bag.weight }} KG • {{ current_bag.get_status_display }}</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'bag_detail' current_bag.id %}" class="btn btn-primary text-sm">
+                    View Bag
+                </a>
+                <button onclick="closeBagContext()" class="btn btn-secondary text-sm">
+                    Close Bag
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Scanner Card - Compact Design -->
 <div class="card mb-6">
     <div class="card-body p-4">
@@ -514,13 +544,47 @@ function quickLoad(awb) { loadShip(awb); }
 function loadShip(awb) {
     showLoading();
     fetch(`/scan/${awb}/`)
-        .then(r => r.json())
+        .then(r => {
+            // Check if response is a redirect (bag detection)
+            if (r.redirected) {
+                window.location.href = r.url;
+                return;
+            }
+            return r.json();
+        })
         .then(data => {
+            if (!data) return; // Redirected, no data to process
             hideLoading();
             if (data.success) showShip(data);
             else toast('Shipment not found');
         })
         .catch(() => { hideLoading(); toast('Error loading shipment'); });
+}
+
+// Close bag context
+function closeBagContext() {
+    showLoading();
+    fetch('/bags/clear-context/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            toast('✓ Bag context cleared');
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            toast('Error clearing bag context');
+        }
+    })
+    .catch(() => {
+        hideLoading();
+        toast('Error clearing bag context');
+    });
 }
 
 // Show shipment

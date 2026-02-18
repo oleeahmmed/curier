@@ -83,86 +83,12 @@
 <!-- Parcels List -->
 <div class="card">
     <div class="card-header">
-        <div class="flex items-center justify-between">
-            <h2 class="text-base font-semibold text-gray-900">All Parcels</h2>
-            <div class="flex items-center space-x-2">
-                <button onclick="setView('grid')" id="gridBtn" class="p-2 rounded-lg hover:bg-gray-100">
-                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-                    </svg>
-                </button>
-                <button onclick="setView('list')" id="listBtn" class="p-2 rounded-lg hover:bg-gray-100">
-                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
+        <h2 class="text-base font-semibold text-gray-900">All Parcels</h2>
     </div>
     
     <div class="card-body">
-        <!-- Grid View -->
-        <div id="gridView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {% for parcel in parcels %}
-            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer" onclick="window.location.href='{% url 'parcel_details' parcel.id %}'">
-                <div class="flex items-start justify-between mb-3">
-                    <div class="flex-1">
-                        <p class="text-xs text-gray-500 mb-1">AWB Number</p>
-                        <p class="text-sm font-semibold text-gray-900">{{ parcel.awb_number }}</p>
-                    </div>
-                    <span class="status-badge status-{{ parcel.current_status|lower }}">
-                        {{ parcel.get_current_status_display }}
-                    </span>
-                </div>
-                
-                <div class="space-y-2 text-xs mb-3">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Direction</span>
-                        <span class="font-medium text-gray-900">{{ parcel.get_direction_display|truncatewords:3 }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Weight</span>
-                        <span class="font-medium text-gray-900">{{ parcel.weight_estimated }} KG</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">To</span>
-                        <span class="font-medium text-gray-900 truncate ml-2">{{ parcel.recipient_name }}</span>
-                    </div>
-                </div>
-                
-                {% if user.is_staff or parcel.current_status == 'PENDING' %}
-                <div class="flex gap-2 pt-3 border-t border-gray-100">
-                    <button onclick="event.stopPropagation(); editParcel({{ parcel.id }})" class="flex-1 py-1.5 text-xs font-medium text-black bg-gray-100 rounded-md hover:bg-gray-200">
-                        Edit
-                    </button>
-                    <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="flex-1 py-1.5 text-xs font-medium text-black bg-gray-100 rounded-md hover:bg-gray-200">
-                        Delete
-                    </button>
-                </div>
-                {% endif %}
-                {% if parcel.current_status != 'PENDING' %}
-                <div class="flex gap-2 pt-3 border-t border-gray-100">
-                    <a href="{% url 'invoice_view' parcel.id %}" onclick="event.stopPropagation();" class="flex-1 py-1.5 text-xs font-medium text-center text-white bg-black rounded-md hover:bg-gray-800">
-                        View Invoice
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-            {% empty %}
-            <div class="col-span-full text-center py-12">
-                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                </svg>
-                <p class="text-gray-500 mb-4">No parcels yet</p>
-                <button onclick="showModal('createModal')" class="btn btn-primary">
-                    Create Your First Parcel
-                </button>
-            </div>
-            {% endfor %}
-        </div>
-        
         <!-- List View -->
-        <div id="listView" class="hidden">
+        <div>
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
@@ -237,7 +163,6 @@
                 <select id="direction" required class="form-input">
                     <option value="">Select Direction</option>
                     <option value="BD_TO_HK">Bangladesh → Hong Kong</option>
-                    <option value="HK_TO_BD">Hong Kong → Bangladesh</option>
                 </select>
             </div>
             
@@ -370,33 +295,6 @@
 <script>
 let currentParcelId = null;
 let deleteParcelId = null;
-let currentView = 'list';
-
-// View Toggle
-function setView(view) {
-    currentView = view;
-    const gridView = document.getElementById('gridView');
-    const listView = document.getElementById('listView');
-    const gridBtn = document.getElementById('gridBtn');
-    const listBtn = document.getElementById('listBtn');
-    
-    if (view === 'grid') {
-        gridView.classList.remove('hidden');
-        listView.classList.add('hidden');
-        gridBtn.classList.add('bg-gray-100');
-        listBtn.classList.remove('bg-gray-100');
-    } else {
-        gridView.classList.add('hidden');
-        listView.classList.remove('hidden');
-        listBtn.classList.add('bg-gray-100');
-        gridBtn.classList.remove('bg-gray-100');
-    }
-}
-
-// Initialize list view on page load
-document.addEventListener('DOMContentLoaded', function() {
-    setView('list');
-});
 
 // COD Toggle
 document.getElementById('isCod').onchange = (e) => {

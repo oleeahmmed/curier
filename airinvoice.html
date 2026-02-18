@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice and Packing List</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .document-container {
+            background-color: white;
+            width: 700px; /* Approximate A4 width ratio */
+            padding: 40px 50px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            color: #000;
+        }
+
+        /* Top Grid Layout */
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .box-header {
+            border: 1px solid black;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            padding: 3px 0;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .info-text {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            min-height: 20px;
+            line-height: 1.4;
+        }
+
+        .info-text.left-align {
+            text-align: left;
+            width: 100%;
+        }
+
+        /* Main Title */
+        .main-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: white;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+            height: 40px;
+        }
+
+        td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .col-desc { width: 40%; }
+        .col-weight { width: 20%; }
+        .col-qty { width: 20%; }
+        .col-val { width: 20%; }
+
+        .content-row {
+            height: 100px; /* Fixed height to match the whitespace in image */
+        }
+
+        .content-row td {
+            vertical-align: middle;
+        }
+
+        .align-left {
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .total-row td {
+            font-weight: bold;
+            height: 30px;
+        }
+
+        /* Footer Section */
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .footer-note {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .awb-number {
+            font-weight: bold;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="document-container">
+        
+        <div class="header-section">
+            
+            <div class="column">
+                <div class="box-header">SHIPPER NAME</div>
+                <div class="info-text">RR HONG KONG LTD</div>
+                
+                <div class="box-header">ADDRESS</div>
+                <div class="info-text left-align">HONG KONG</div>
+            </div>
+
+            <div class="column">
+                <div class="box-header">CONSIGNEE NAME</div>
+                <div class="info-text">
+                    CRESCENT FASHION AND<br>
+                    DESIGN LTD
+                </div>
+                
+                <div class="box-header">ADDRESS</div>
+                <div class="info-text left-align">
+                    SARABO KASHIMPUR GAZIPUR BD<br>
+                    DHAKA 1345, BANGLADESH<br>
+                    BIN NO. 000304701-0103<br>
+                    TEL NO. 01836862130 - TAPOSEE
+                </div>
+            </div>
+        </div>
+
+        <div class="main-title">INVOICE and PACKING LIST</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-desc">DESCRIPTION OF GOODS</th>
+                    <th class="col-weight">WEIGHT<br>(KG)</th>
+                    <th class="col-qty">QUANTITY</th>
+                    <th class="col-val">VALUE</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="content-row">
+                    <td class="align-left">FABRIC</td>
+                    <td>50kg</td>
+                    <td>3pcs</td>
+                    <td>USD 7</td>
+                </tr>
+                <tr class="total-row">
+                    <td style="border-right: 1px solid black;">&nbsp;</td>
+                    <td style="border-left: none; border-right: none;">&nbsp;</td>
+                    <td style="border-left: none;">&nbsp;</td>
+                    <td>USD 7</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <div class="footer-note">NO COMMERCIAL INVOICE VALUE</div>
+            <div class="awb-number">AWB# 8523144375</div>
+        </div>
+
+    </div>
+
+</body>
+</html>

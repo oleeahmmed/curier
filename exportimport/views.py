@@ -84,10 +84,21 @@ def scan_home(request):
     if hasattr(request.user, 'staff_profile'):
         user_role = request.user.staff_profile.role
     
+    # Get current bag context from session
+    current_bag = None
+    bag_id = request.session.get('current_bag_id')
+    if bag_id:
+        try:
+            current_bag = Bag.objects.get(id=bag_id)
+        except Bag.DoesNotExist:
+            # Clear invalid bag from session
+            request.session.pop('current_bag_id', None)
+    
     context = {
         'user': request.user,
         'user_role': user_role,
-        'recent_scans': Shipment.objects.exclude(current_status='PENDING').order_by('-updated_at')[:10]
+        'recent_scans': Shipment.objects.exclude(current_status='PENDING').order_by('-updated_at')[:10],
+        'current_bag': current_bag
     }
     return render(request, 'exportimport/scan_home.html', context)
 
@@ -96,7 +107,20 @@ def scan_home(request):
 @login_required(login_url='login')
 @require_http_methods(["GET"])
 def scan_shipment(request, awb):
-    """Get shipment details by AWB or ID"""
+    """Get shipment details by AWB or ID, or redirect to bag detail if bag number"""
+    # Check if scanned code is a bag number
+    if awb.startswith('BAG-'):
+        # Try to find the bag
+        try:
+            bag = Bag.objects.get(bag_number=awb)
+            # Redirect to bag detail view
+            return redirect('bag_detail', bag_id=bag.id)
+        except Bag.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': f'Bag {awb} not found'
+            }, status=404)
+    
     try:
         # Try to get by ID first (if awb is numeric), then by AWB number
         if awb.isdigit():
@@ -543,7 +567,7 @@ def get_parcel(request, parcel_id):
 @login_required(login_url='login')
 @require_http_methods(["POST"])
 def update_parcel(request, parcel_id):
-    """Update parcel - Only if status is PENDING"""
+    """Update parcel - Staff can edit parcels in OPEN bags, customers can only edit PENDING"""
     try:
         shipment = get_object_or_404(Shipment, id=parcel_id)
         
@@ -551,14 +575,36 @@ def update_parcel(request, parcel_id):
         if not request.user.is_staff and shipment.booked_by != request.user:
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
-        # Only allow editing if status is PENDING
-        if shipment.current_status != 'PENDING':
-            return JsonResponse({
-                'success': False,
-                'error': 'Cannot edit parcel after it has been processed'
-            }, status=400)
+        # Staff can edit parcels in OPEN bags or PENDING parcels
+        # Customers can only edit PENDING
+        if request.user.is_staff:
+            # Check if parcel is in a bag
+            bags = shipment.bags.all()
+            if bags.exists():
+                bag = bags.first()
+                if bag.status != 'OPEN':
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Cannot edit parcel in {bag.get_status_display()} bag. Unseal the bag first.'
+                    }, status=400)
+            # If not in a bag, allow editing for any status except delivered/exception
+            elif shipment.current_status in ['DELIVERED', 'DELIVERED_IN_HK', 'EXCEPTION_DAMAGED', 'EXCEPTION_CUSTOMS_HOLD', 'RETURN_TO_SENDER']:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot edit parcel with this status'
+                }, status=400)
+        else:
+            # Customers can only edit PENDING
+            if shipment.current_status != 'PENDING':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot edit parcel after it has been processed'
+                }, status=400)
         
         data = json.loads(request.body)
+        
+        # Store old weight for bag weight update
+        old_weight = shipment.weight_estimated
         
         # Update fields
         shipment.direction = data.get('direction', shipment.direction)
@@ -581,6 +627,13 @@ def update_parcel(request, parcel_id):
         shipment.special_instructions = data.get('special_instructions', shipment.special_instructions)
         
         shipment.save()
+        
+        # Update bag weight if shipment is in a bag and weight changed
+        if old_weight != shipment.weight_estimated:
+            bags = shipment.bags.all()
+            if bags.exists():
+                bag = bags.first()
+                bag.update_weight()
         
         return JsonResponse({
             'success': True,
@@ -785,30 +838,69 @@ def invoice_view(request, shipment_id):
 # ==================== BAG MANAGEMENT (Staff Only) ====================
 @login_required(login_url='login')
 def bags_view(request):
-    """Bag management page for staff"""
+    """Bag management page for staff with filters"""
     # Redirect non-staff to parcel booking
     if not request.user.is_staff:
         return redirect('parcel_booking')
     
-    bags = Bag.objects.all().order_by('-created_at')
+    # Get filter parameters
+    search = request.GET.get('search', '')
+    status_filter = request.GET.get('status', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    sort_by = request.GET.get('sort', '-created_at')
     
-    # Get stats
-    total_bags = bags.count()
-    open_bags = bags.filter(status='OPEN').count()
-    sealed_bags = bags.filter(status='SEALED').count()
-    dispatched_bags = bags.filter(status='DISPATCHED').count()
+    # Base queryset with related data
+    bags = Bag.objects.select_related('created_by', 'sealed_by').all()
+    
+    # Apply search filter (bag number)
+    if search:
+        bags = bags.filter(bag_number__icontains=search)
+    
+    # Apply status filter
+    if status_filter:
+        bags = bags.filter(status=status_filter)
+    
+    # Apply date range filters
+    if date_from:
+        bags = bags.filter(created_at__gte=date_from)
+    
+    if date_to:
+        # Add one day to include the entire end date
+        from datetime import datetime, timedelta
+        try:
+            end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            bags = bags.filter(created_at__lt=end_date)
+        except ValueError:
+            pass
+    
+    # Apply sorting (default: most recent first)
+    valid_sort_fields = ['bag_number', '-bag_number', 'status', '-status', 
+                        'weight', '-weight', 'created_at', '-created_at']
+    if sort_by in valid_sort_fields:
+        bags = bags.order_by(sort_by)
+    else:
+        bags = bags.order_by('-created_at')
+    
+    # Get stats (from all bags, not filtered)
+    all_bags = Bag.objects.all()
+    total_bags = all_bags.count()
+    open_bags = all_bags.filter(status='OPEN').count()
+    sealed_bags = all_bags.filter(status='SEALED').count()
+    in_manifest_bags = all_bags.filter(status='IN_MANIFEST').count()
+    dispatched_bags = all_bags.filter(status='DISPATCHED').count()
     
     # Get available shipments (BD to HK, RECEIVED_AT_BD status, no bag assigned)
     available_shipments = Shipment.objects.filter(
         direction='BD_TO_HK',
         current_status='RECEIVED_AT_BD',
-        bag__isnull=True
+        bags__isnull=True
     ).order_by('-created_at')
     
     # Get all non-delivered shipments (BD to HK, not delivered, no bag assigned)
     all_shipments = Shipment.objects.filter(
         direction='BD_TO_HK',
-        bag__isnull=True
+        bags__isnull=True
     ).exclude(
         current_status__in=['DELIVERED', 'DELIVERED_IN_HK']
     ).order_by('-created_at')
@@ -819,9 +911,16 @@ def bags_view(request):
         'total_bags': total_bags,
         'open_bags': open_bags,
         'sealed_bags': sealed_bags,
+        'in_manifest_bags': in_manifest_bags,
         'dispatched_bags': dispatched_bags,
         'available_shipments': available_shipments,
         'all_shipments': all_shipments,
+        'search': search,
+        'status_filter': status_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'sort_by': sort_by,
+        'status_choices': Bag.STATUS_CHOICES,
     }
     return render(request, 'exportimport/bags.html', context)
 
@@ -836,56 +935,43 @@ def create_bag(request):
     try:
         data = json.loads(request.body)
         
-        bag_number = data.get('bag_number', '').strip()
-        shipment_id = data.get('shipment_id')
+        shipment_ids = data.get('shipment_ids', [])
         weight = data.get('weight', 0)
         
-        if not bag_number:
-            return JsonResponse({
-                'success': False,
-                'error': 'Bag number is required'
-            }, status=400)
-        
-        # Check if bag number already exists
-        if Bag.objects.filter(bag_number=bag_number).exists():
-            return JsonResponse({
-                'success': False,
-                'error': 'Bag number already exists'
-            }, status=400)
-        
-        # Create bag
+        # Create bag (bag_number will be auto-generated by the model's save method)
         bag = Bag.objects.create(
-            bag_number=bag_number,
             weight=weight,
-            status='OPEN'
+            status='OPEN',
+            created_by=request.user
         )
         
-        # Assign shipment if provided
-        if shipment_id:
-            try:
-                shipment = Shipment.objects.get(id=shipment_id)
-                bag.shipment = shipment
-                bag.save()
-                
-                # Update shipment status
-                shipment.current_status = 'BAGGED_FOR_EXPORT'
-                shipment.save()
-                
-                # Create tracking event
-                TrackingEvent.objects.create(
-                    shipment=shipment,
-                    status='BAGGED_FOR_EXPORT',
-                    description=f'Added to bag {bag_number}',
-                    location='Bangladesh Warehouse',
-                    updated_by=request.user
-                )
-            except Shipment.DoesNotExist:
-                pass
+        # Assign shipments if provided
+        if shipment_ids:
+            for shipment_id in shipment_ids:
+                try:
+                    shipment = Shipment.objects.get(id=shipment_id)
+                    bag.shipment.add(shipment)
+                    
+                    # Update shipment status
+                    shipment.current_status = 'BAGGED_FOR_EXPORT'
+                    shipment.save()
+                    
+                    # Create tracking event
+                    TrackingEvent.objects.create(
+                        shipment=shipment,
+                        status='BAGGED_FOR_EXPORT',
+                        description=f'Added to bag {bag.bag_number}',
+                        location='Bangladesh Warehouse',
+                        updated_by=request.user
+                    )
+                except Shipment.DoesNotExist:
+                    pass
         
         return JsonResponse({
             'success': True,
-            'message': 'Bag created successfully',
-            'bag_id': bag.id
+            'message': f'Bag {bag.bag_number} created successfully',
+            'bag_id': bag.id,
+            'bag_number': bag.bag_number
         })
     
     except Exception as e:
@@ -893,6 +979,66 @@ def create_bag(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required(login_url='login')
+def bag_detail_view(request, bag_id):
+    """Display bag detail page with integrated scanner"""
+    if not request.user.is_staff:
+        return redirect('parcel_booking')
+    
+    bag = get_object_or_404(Bag, id=bag_id)
+    
+    # Set current bag in session for scanner context
+    request.session['current_bag_id'] = bag.id
+    
+    # Get all shipments in the bag
+    shipments = bag.shipment.all().order_by('-created_at')
+    
+    # Calculate total weight from shipments
+    total_weight = sum(shipment.weight_estimated for shipment in shipments)
+    
+    # Get manifest info if bag is in any manifest
+    manifest_info = None
+    manifests = bag.manifests.all()
+    if manifests.exists():
+        manifest = manifests.first()
+        manifest_info = manifest
+    
+    # Calculate max weight (default 100 KG if not set)
+    max_weight = getattr(bag, 'max_weight', 100)
+    
+    context = {
+        'user': request.user,
+        'bag': bag,
+        'shipments': shipments,
+        'item_count': bag.get_item_count(),
+        'total_weight': total_weight,
+        'max_weight': max_weight,
+        'manifest': manifest_info,
+        'can_seal': bag.status == 'OPEN' and bag.get_item_count() > 0,
+        'can_unseal': bag.status == 'SEALED',
+        'can_add_parcels': bag.status == 'OPEN',
+        'has_invoice': bag.status == 'SEALED' and hasattr(bag, 'air_invoice') and bag.air_invoice,
+    }
+    
+    return render(request, 'exportimport/bag_detail.html', context)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def clear_bag_context(request):
+    """Clear the current bag context from session"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    # Remove bag context from session
+    request.session.pop('current_bag_id', None)
+    
+    return JsonResponse({
+        'success': True,
+        'message': 'Bag context cleared'
+    })
 
 
 @login_required(login_url='login')
@@ -949,6 +1095,200 @@ def get_bag(request, bag_id):
         
         return JsonResponse(data)
     
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def add_shipment_to_bag(request, bag_id):
+    """Add shipment to bag - AJAX endpoint"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    try:
+        bag = get_object_or_404(Bag, id=bag_id)
+        data = json.loads(request.body)
+        awb_number = data.get('awb_number', '').strip()
+        
+        if not awb_number:
+            return JsonResponse({
+                'success': False,
+                'error': 'AWB number is required'
+            }, status=400)
+        
+        # Find shipment by AWB
+        try:
+            shipment = Shipment.objects.get(awb_number=awb_number)
+        except Shipment.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': f'Shipment {awb_number} not found'
+            }, status=404)
+        
+        # Add shipment to bag (this handles all validations)
+        weight_warning = bag.add_shipment(shipment, request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Parcel {awb_number} added to bag',
+            'bag_weight': str(bag.weight),
+            'item_count': bag.get_item_count(),
+            'weight_warning': weight_warning,
+            'shipment': {
+                'id': shipment.id,
+                'awb_number': shipment.awb_number,
+                'recipient_name': shipment.recipient_name,
+                'weight': str(shipment.weight_estimated),
+                'status': shipment.get_current_status_display()
+            }
+        })
+    
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def remove_shipment_from_bag(request, bag_id, shipment_id):
+    """Remove shipment from bag - AJAX endpoint"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    try:
+        bag = get_object_or_404(Bag, id=bag_id)
+        shipment = get_object_or_404(Shipment, id=shipment_id)
+        
+        # Remove shipment from bag (this handles all validations)
+        bag.remove_shipment(shipment, request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Parcel {shipment.awb_number} removed from bag',
+            'bag_weight': str(bag.weight),
+            'item_count': bag.get_item_count()
+        })
+    
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def seal_bag_view(request, bag_id):
+    """Seal bag - POST endpoint"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    try:
+        bag = get_object_or_404(Bag, id=bag_id)
+        
+        # Seal bag (this handles all validations and generates air invoice)
+        bag.seal_bag(request.user)
+        
+        invoice_url = None
+        if hasattr(bag, 'air_invoice') and bag.air_invoice:
+            invoice_url = f'/bags/{bag_id}/invoice/'
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Bag sealed successfully. Air invoice generated.',
+            'invoice_url': invoice_url
+        })
+    
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def unseal_bag_view(request, bag_id):
+    """Unseal bag - POST endpoint"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    try:
+        bag = get_object_or_404(Bag, id=bag_id)
+        data = json.loads(request.body)
+        reason = data.get('reason', '').strip()
+        
+        if not reason:
+            return JsonResponse({
+                'success': False,
+                'error': 'Reason is required to unseal bag'
+            }, status=400)
+        
+        # Unseal bag (this handles all validations)
+        bag.unseal_bag(request.user, reason)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Bag unsealed successfully'
+        })
+    
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def delete_bag_view(request, bag_id):
+    """Delete bag - POST endpoint (only OPEN bags can be deleted)"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    try:
+        bag = get_object_or_404(Bag, id=bag_id)
+        bag_number = bag.bag_number
+        
+        # Delete bag (this handles all validations and shipment status reversion)
+        bag.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Bag {bag_number} deleted successfully'
+        })
+    
+    except ValidationError as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
     except Exception as e:
         return JsonResponse({
             'success': False,
@@ -1021,6 +1361,88 @@ def update_bag_status(request, bag_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required(login_url='login')
+@require_http_methods(["GET"])
+def download_air_invoice(request, bag_id):
+    """Download air invoice PDF - Staff only"""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    try:
+        from django.http import FileResponse
+        
+        bag = get_object_or_404(Bag, id=bag_id)
+        
+        # Validate bag is sealed
+        if bag.status not in ['SEALED', 'IN_MANIFEST', 'DISPATCHED']:
+            return JsonResponse({
+                'success': False,
+                'error': 'Air invoice is only available for sealed bags'
+            }, status=400)
+        
+        # Check if air invoice exists
+        if not hasattr(bag, 'air_invoice') or not bag.air_invoice:
+            return JsonResponse({
+                'success': False,
+                'error': 'Air invoice not found for this bag'
+            }, status=404)
+        
+        air_invoice = bag.air_invoice
+        
+        # Check if PDF file exists
+        if not air_invoice.pdf_file:
+            return JsonResponse({
+                'success': False,
+                'error': 'PDF file not found'
+            }, status=404)
+        
+        # Generate filename
+        filename = f"AIR_INVOICE_{bag.bag_number}_{bag.sealed_at.strftime('%Y%m%d')}.pdf"
+        
+        # Return PDF file response with Content-Disposition header
+        response = FileResponse(air_invoice.pdf_file.open('rb'), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+def print_bag_label(request, bag_id):
+    """Print bag label - Staff only"""
+    if not request.user.is_staff:
+        return redirect('parcel_booking')
+
+    bag = get_object_or_404(Bag, id=bag_id)
+
+    # Get item count and weight
+    item_count = bag.get_item_count()
+
+    # Get creation info with safe handling for None created_by
+    if bag.created_by:
+        created_by_name = bag.created_by.get_full_name() or bag.created_by.username
+    else:
+        created_by_name = "System"
+
+    created_date = bag.created_at.strftime('%Y-%m-%d %H:%M')
+
+    context = {
+        'bag': bag,
+        'item_count': item_count,
+        'created_by_name': created_by_name,
+        'created_date': created_date,
+        'qr_code': bag.get_qrcode_url(),
+        'barcode': bag.get_barcode_url(),
+    }
+
+    return render(request, 'exportimport/print_label.html', context)
+
 
 
 # ==================== CUSTOMER REGISTRATION AND PROFILE ====================

@@ -42,7 +42,16 @@ urlpatterns = [
     path('bags/', views.bags_view, name='bags'),
     path('bags/create/', views.create_bag, name='create_bag'),
     path('bags/<int:bag_id>/', views.get_bag, name='get_bag'),
+    path('bags/<int:bag_id>/detail/', views.bag_detail_view, name='bag_detail'),
+    path('bags/<int:bag_id>/add-shipment/', views.add_shipment_to_bag, name='add_shipment_to_bag'),
+    path('bags/<int:bag_id>/remove-shipment/<int:shipment_id>/', views.remove_shipment_from_bag, name='remove_shipment_from_bag'),
+    path('bags/<int:bag_id>/seal/', views.seal_bag_view, name='seal_bag'),
+    path('bags/<int:bag_id>/unseal/', views.unseal_bag_view, name='unseal_bag'),
+    path('bags/<int:bag_id>/delete/', views.delete_bag_view, name='delete_bag'),
     path('bags/<int:bag_id>/status/', views.update_bag_status, name='update_bag_status'),
+    path('bags/<int:bag_id>/invoice/', views.download_air_invoice, name='download_air_invoice'),
+    path('bags/<int:bag_id>/label/', views.print_bag_label, name='print_bag_label'),
+    path('bags/clear-context/', views.clear_bag_context, name='clear_bag_context'),
     
     # Manifest Management (BD Manager/Admin only)
     path('manifests/', manifest_views.ManifestListView.as_view(), name='manifests'),

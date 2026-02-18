@@ -1,0 +1,1182 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Bag {{ bag.bag_number }} - Details{% endblock %}
+{% block page_title %}Bag Details{% endblock %}
+
+{% block extra_head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+    #scannerReader { 
+        width: 100% !important; 
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    #scannerReader video { 
+        border-radius: 8px; 
+        width: 100% !important; 
+        max-height: 300px;
+        object-fit: cover;
+    }
+    
+    .weight-indicator {
+        transition: all 0.3s ease;
+    }
+    
+    .weight-normal {
+        background: #10b981;
+    }
+    
+    .weight-warning {
+        background: #f59e0b;
+    }
+    
+    .weight-exceeded {
+        background: #ef4444;
+    }
+    
+    /* Scanner flash animation */
+    @keyframes scannerFlash {
+        0% {
+            background-color: rgba(16, 185, 129, 0);
+        }
+        50% {
+            background-color: rgba(16, 185, 129, 0.3);
+        }
+        100% {
+            background-color: rgba(16, 185, 129, 0);
+        }
+    }
+    
+    .scanner-flash {
+        animation: scannerFlash 0.6s ease-out;
+    }
+</style>
+{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'bags' %}" class="btn btn-secondary text-sm">
+    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+    </svg>
+    Back to Bags
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Bag Information Card -->
+<div class="card mb-6">
+    <div class="card-header">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">{{ bag.bag_number }}</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Created by {% if bag.created_by %}{{ bag.created_by.get_full_name|default:bag.created_by.username }}{% else %}System{% endif %} 
+                    on {{ bag.created_at|date:"M d, Y H:i" }}
+                </p>
+            </div>
+            <span class="status-badge {% if bag.status == 'OPEN' %}status-pending{% elif bag.status == 'SEALED' %}status-booked{% elif bag.status == 'DISPATCHED' %}status-delivered{% else %}status-transit{% endif %}">
+                {{ bag.get_status_display }}
+            </span>
+        </div>
+    </div>
+    
+    <div class="card-body">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 mb-1">Item Count</p>
+                <p class="text-2xl font-bold text-gray-900" id="itemCount">{{ item_count }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 mb-1">Total Weight</p>
+                <p class="text-2xl font-bold text-gray-900" id="totalWeight">{{ total_weight|floatformat:2 }} KG</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 mb-1">Max Weight</p>
+                <p class="text-2xl font-bold text-gray-900">{{ max_weight }} KG</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-xs text-gray-500 mb-1">Weight Status</p>
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 bg-gray-200 rounded-full h-2">
+                        <div id="weightBar" class="weight-indicator h-2 rounded-full" style="width: {{ bag.weight|floatformat:0 }}%"></div>
+                    </div>
+                    <span id="weightPercent" class="text-xs font-semibold text-gray-600">{{ bag.weight|floatformat:0 }}%</span>
+                </div>
+            </div>
+        </div>
+        
+        {% if bag.unsealed_at %}
+        <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p class="text-xs font-semibold text-yellow-800 mb-1">⚠️ Unsealed</p>
+            <p class="text-sm text-yellow-700">
+                Unsealed by {{ bag.unsealed_by.get_full_name|default:bag.unsealed_by.username }} 
+                on {{ bag.unsealed_at|date:"M d, Y H:i" }}
+            </p>
+            <p class="text-sm text-yellow-700 mt-1"><strong>Reason:</strong> {{ bag.unseal_reason }}</p>
+        </div>
+        {% endif %}
+        
+        {% if manifest %}
+        <div class="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <p class="text-xs font-semibold text-purple-800 mb-1">✈️ In Manifest</p>
+            <p class="text-sm text-purple-700">
+                {{ manifest.manifest_number }} - Flight {{ manifest.flight_number }}
+            </p>
+            <p class="text-sm text-purple-700">
+                Status: {{ manifest.get_status_display }} • Departure: {{ manifest.departure_date|date:"M d, Y" }}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Shipments List -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Parcels in Bag ({{ item_count }})</h3>
+    </div>
+    
+    <div class="card-body">
+        {% if shipments %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">AWB Number</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sender</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contents</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weight</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200" id="shipmentsTableBody">
+                    {% for shipment in shipments %}
+                    <tr class="{% if forloop.counter0|divisibleby:2 %}bg-gray-100{% else %}bg-white{% endif %} hover:bg-gray-200" data-shipment-id="{{ shipment.id }}">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ shipment.awb_number }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            <div>{{ shipment.sender_name }}</div>
+                            <div class="text-xs text-gray-500">{{ shipment.sender_phone }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            <div>{{ shipment.recipient_name }}</div>
+                            <div class="text-xs text-gray-500">{{ shipment.recipient_phone }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            <div class="max-w-xs truncate" title="{{ shipment.contents }}">{{ shipment.contents }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.weight_estimated }} KG</td>
+                        <td class="px-4 py-3">
+                            <span class="status-badge status-booked text-xs">
+                                {{ shipment.get_current_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex gap-2">
+                                {% if can_add_parcels %}
+                                <button onclick="editShipment({{ shipment.id }})" 
+                                        class="text-xs px-3 py-1.5 bg-blue-600 text-white border border-black hover:bg-blue-700 rounded font-medium transition-colors">
+                                    Edit
+                                </button>
+                                <button onclick="removeShipment({{ shipment.id }}, '{{ shipment.awb_number }}')" 
+                                        class="text-xs px-3 py-1.5 bg-red-600 text-white border border-black hover:bg-red-700 rounded font-medium transition-colors">
+                                    Remove
+                                </button>
+                                {% else %}
+                                <span class="text-xs text-gray-400">Bag {{ bag.get_status_display }}</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-gray-900 mb-1">No parcels in this bag</p>
+            <p class="text-xs text-gray-500">
+                {% if can_add_parcels %}
+                    Use the scanner below to add parcels
+                {% else %}
+                    Bag is {{ bag.get_status_display|lower }} and cannot be modified
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scanner Interface (Only for OPEN bags) -->
+{% if can_add_parcels %}
+<div class="card mb-6" id="scannerCard">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Add Parcels</h3>
+    </div>
+    
+    <div class="card-body">
+        <!-- Scanner Mode Tabs -->
+        <div class="flex gap-2 mb-4 border-b border-gray-200">
+            <button onclick="switchScanMode('qr')" id="qrModeBtn" 
+                    class="px-4 py-2 text-sm font-medium border-b-2 border-black text-black">
+                QR Code
+            </button>
+            <button onclick="switchScanMode('barcode')" id="barcodeModeBtn" 
+                    class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                Barcode
+            </button>
+            <button onclick="switchScanMode('manual')" id="manualModeBtn" 
+                    class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">
+                Manual Entry
+            </button>
+        </div>
+        
+        <!-- QR/Barcode Scanner -->
+        <div id="scannerMode" class="mb-4">
+            <div class="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                <div id="scannerReader"></div>
+                <button id="startScanBtn" onclick="startScanner()" class="w-full mt-3 btn btn-primary">
+                    Start Scanner
+                </button>
+                <button id="stopScanBtn" onclick="stopScanner()" class="w-full mt-3 btn btn-secondary hidden">
+                    Stop Scanner
+                </button>
+            </div>
+        </div>
+        
+        <!-- Manual Entry Mode -->
+        <div id="manualMode" class="hidden mb-4">
+            <div class="flex gap-2">
+                <input 
+                    type="text" 
+                    id="manualAwbInput"
+                    placeholder="Enter AWB number..."
+                    class="form-input flex-1"
+                    onkeypress="if(event.key==='Enter') addParcelManual()"
+                >
+                <button onclick="addParcelManual()" class="btn btn-primary px-6">
+                    Add Parcel
+                </button>
+            </div>
+        </div>
+        
+        <p class="text-xs text-gray-500 text-center">
+            Scanner remains active for continuous scanning. Click "Close Scanner" when done.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Action Buttons -->
+<div class="flex flex-wrap gap-3">
+    {% if can_seal %}
+    <button onclick="sealBag()" class="px-4 py-2 bg-green-600 text-white border border-black hover:bg-green-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+        </svg>
+        Seal Bag
+    </button>
+    {% endif %}
+    
+    {% if can_unseal %}
+    <button onclick="showUnsealModal()" class="px-4 py-2 bg-orange-600 text-white border border-black hover:bg-orange-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+        </svg>
+        Unseal Bag
+    </button>
+    {% endif %}
+    
+    {% if bag.status == 'OPEN' %}
+    <button onclick="deleteBag()" class="px-4 py-2 bg-red-600 text-white border border-black hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+        Delete Bag
+    </button>
+    {% endif %}
+    
+    {% if has_invoice %}
+    <a href="{% url 'download_air_invoice' bag.id %}" target="_blank" class="px-4 py-2 bg-blue-600 text-white border border-black hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Download Invoice
+    </a>
+    {% endif %}
+    
+    <a href="{% url 'print_bag_label' bag.id %}" target="_blank" class="px-4 py-2 bg-gray-600 text-white border border-black hover:bg-gray-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+        </svg>
+        Print Label
+    </a>
+</div>
+
+<!-- Unseal Modal -->
+<div id="unsealModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('unsealModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Unseal Bag</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4">
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p class="text-sm text-yellow-800">
+                    ⚠️ This action will unseal the bag and delete the air invoice. This action is audited.
+                </p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Reason for Unsealing *</label>
+                <textarea 
+                    id="unsealReason"
+                    rows="3"
+                    placeholder="Enter reason..."
+                    class="form-input"
+                ></textarea>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="unsealConfirm" class="w-4 h-4">
+                <label for="unsealConfirm" class="text-sm text-gray-700">
+                    I understand this action is audited
+                </label>
+            </div>
+            
+            <div class="flex gap-3 pt-2">
+                <button onclick="hideModal('unsealModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button onclick="unsealBag()" class="flex-1 btn btn-danger py-3">
+                    Unseal Bag
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Bag Confirmation Modal -->
+<div id="deleteBagModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-5">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2">Delete Bag</h3>
+                <p class="text-sm text-gray-600 mb-2">Are you sure you want to delete bag <span class="font-semibold text-gray-900">{{ bag.bag_number }}</span>?</p>
+                <p class="text-sm text-red-600 mb-1">This will remove all <span id="deleteItemCount">{{ item_count }}</span> parcel(s) from the bag and return them to RECEIVED_AT_BD status.</p>
+                <p class="text-sm text-gray-500">This action cannot be undone.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideModal('deleteBagModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="confirmDeleteBagBtn" class="flex-1 btn btn-danger py-3">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Shipment Modal -->
+<div id="editShipmentModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('editShipmentModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Edit Parcel</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+            <input type="hidden" id="editShipmentId">
+            
+            <!-- Sender Information -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="form-group">
+                        <label class="form-label text-sm">Sender Name *</label>
+                        <input type="text" id="editSenderName" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Sender Phone *</label>
+                        <input type="text" id="editSenderPhone" class="form-input" required>
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label class="form-label text-sm">Sender Address *</label>
+                        <textarea id="editSenderAddress" rows="2" class="form-input" required></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recipient Information -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Recipient Information</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="form-group">
+                        <label class="form-label text-sm">Recipient Name *</label>
+                        <input type="text" id="editRecipientName" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Recipient Phone *</label>
+                        <input type="text" id="editRecipientPhone" class="form-input" required>
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label class="form-label text-sm">Recipient Address *</label>
+                        <textarea id="editRecipientAddress" rows="2" class="form-input" required></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Parcel Details -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Parcel Details</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="form-group md:col-span-2">
+                        <label class="form-label text-sm">Contents *</label>
+                        <textarea id="editContents" rows="2" class="form-input" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Weight (KG) *</label>
+                        <input type="number" id="editWeight" step="0.01" min="0.01" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Declared Value *</label>
+                        <input type="number" id="editDeclaredValue" step="0.01" min="0" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Service Type</label>
+                        <select id="editServiceType" class="form-input">
+                            <option value="EXPRESS">Express</option>
+                            <option value="STANDARD">Standard</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Payment Method</label>
+                        <select id="editPaymentMethod" class="form-input">
+                            <option value="PREPAID">Prepaid</option>
+                            <option value="CASH">Cash at Warehouse</option>
+                            <option value="CREDIT">Credit Account</option>
+                            <option value="COD">Cash on Delivery</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Special Flags -->
+                <div class="mt-3 space-y-2">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="editIsFragile" class="w-4 h-4">
+                        <span class="text-sm text-gray-700">Fragile</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="editIsLiquid" class="w-4 h-4">
+                        <span class="text-sm text-gray-700">Contains Liquid</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="editIsCod" class="w-4 h-4">
+                        <span class="text-sm text-gray-700">Cash on Delivery</span>
+                    </label>
+                </div>
+                
+                <div id="editCodAmountGroup" class="form-group mt-3 hidden">
+                    <label class="form-label text-sm">COD Amount</label>
+                    <input type="number" id="editCodAmount" step="0.01" min="0" class="form-input">
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label class="form-label text-sm">Special Instructions</label>
+                    <textarea id="editSpecialInstructions" rows="2" class="form-input"></textarea>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 pt-2">
+                <button onclick="hideModal('editShipmentModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button onclick="saveShipmentEdit()" class="flex-1 btn btn-primary py-3">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const bagId = {{ bag.id }};
+const maxWeight = {{ max_weight }};
+let currentWeight = {{ total_weight|floatformat:2 }};
+let itemCount = {{ item_count }};
+
+// Scanner variables
+let qrScanner = null;
+let scanning = false;
+let currentScanMode = 'qr';
+
+// Audio context for feedback sounds
+let audioContext = null;
+let audioEnabled = true;
+
+// Initialize audio context (lazy initialization to avoid autoplay restrictions)
+function initAudioContext() {
+    if (!audioContext) {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            console.log('Web Audio API not supported');
+            audioEnabled = false;
+        }
+    }
+}
+
+// Play success beep sound
+function playSuccessBeep() {
+    if (!audioEnabled) return;
+    
+    initAudioContext();
+    if (!audioContext) return;
+    
+    try {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800; // 800 Hz for success
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (e) {
+        console.log('Audio playback failed:', e);
+    }
+}
+
+// Play warning sound for weight exceeded
+function playWarningBeep() {
+    if (!audioEnabled) return;
+    
+    initAudioContext();
+    if (!audioContext) return;
+    
+    try {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 600; // 600 Hz for warning
+        oscillator.type = 'square';
+        
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    } catch (e) {
+        console.log('Audio playback failed:', e);
+    }
+}
+
+// Play error sound for failed scans
+function playErrorBeep() {
+    if (!audioEnabled) return;
+    
+    initAudioContext();
+    if (!audioContext) return;
+    
+    try {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 300; // 300 Hz for error
+        oscillator.type = 'sawtooth';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+        console.log('Audio playback failed:', e);
+    }
+}
+
+// Switch scan mode
+function switchScanMode(mode) {
+    currentScanMode = mode;
+    
+    // Update tab styles
+    document.getElementById('qrModeBtn').className = 'px-4 py-2 text-sm font-medium border-b-2 ' + 
+        (mode === 'qr' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700');
+    document.getElementById('barcodeModeBtn').className = 'px-4 py-2 text-sm font-medium border-b-2 ' + 
+        (mode === 'barcode' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700');
+    document.getElementById('manualModeBtn').className = 'px-4 py-2 text-sm font-medium border-b-2 ' + 
+        (mode === 'manual' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700');
+    
+    // Show/hide appropriate interface
+    if (mode === 'manual') {
+        document.getElementById('scannerMode').classList.add('hidden');
+        document.getElementById('manualMode').classList.remove('hidden');
+        stopScanner();
+    } else {
+        document.getElementById('scannerMode').classList.remove('hidden');
+        document.getElementById('manualMode').classList.add('hidden');
+    }
+}
+
+// Start scanner
+async function startScanner() {
+    if (scanning) return;
+    
+    try {
+        scanning = true;
+        qrScanner = new Html5Qrcode("scannerReader");
+        
+        const config = currentScanMode === 'qr' 
+            ? { fps: 10, qrbox: 250 }
+            : { fps: 10, qrbox: { width: 300, height: 150 } };
+        
+        await qrScanner.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                addParcelByAwb(decodedText);
+            },
+            () => {}
+        );
+        
+        document.getElementById('startScanBtn').classList.add('hidden');
+        document.getElementById('stopScanBtn').classList.remove('hidden');
+    } catch (err) {
+        scanning = false;
+        toast('Camera error. Please use manual entry.');
+    }
+}
+
+// Stop scanner
+function stopScanner() {
+    if (qrScanner && scanning) {
+        try {
+            qrScanner.stop().then(() => {
+                qrScanner.clear();
+                scanning = false;
+                document.getElementById('startScanBtn').classList.remove('hidden');
+                document.getElementById('stopScanBtn').classList.add('hidden');
+            }).catch(() => {
+                scanning = false;
+                document.getElementById('startScanBtn').classList.remove('hidden');
+                document.getElementById('stopScanBtn').classList.add('hidden');
+            });
+        } catch (err) {
+            scanning = false;
+            document.getElementById('startScanBtn').classList.remove('hidden');
+            document.getElementById('stopScanBtn').classList.add('hidden');
+        }
+    }
+}
+
+// Add parcel manually
+function addParcelManual() {
+    const awb = document.getElementById('manualAwbInput').value.trim();
+    if (!awb) {
+        toast('Please enter AWB number');
+        return;
+    }
+    addParcelByAwb(awb);
+}
+
+// Add parcel by AWB
+async function addParcelByAwb(awb) {
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${bagId}/add-shipment/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ awb_number: awb })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            // Vibration feedback (200ms) with fallback for unsupported devices
+            if ('vibrate' in navigator) {
+                try {
+                    navigator.vibrate(200);
+                } catch (e) {
+                    // Vibration not supported or failed, continue without it
+                    console.log('Vibration not supported');
+                }
+            }
+            
+            // Audio feedback - Success beep sound
+            playSuccessBeep();
+            
+            // Visual feedback - Green flash animation on scanner area
+            const scannerCard = document.getElementById('scannerCard');
+            if (scannerCard) {
+                scannerCard.classList.add('scanner-flash');
+                setTimeout(() => {
+                    scannerCard.classList.remove('scanner-flash');
+                }, 600);
+            }
+            
+            // Success toast notification with AWB
+            toast('✓ Parcel added: ' + awb);
+            
+            // Update stats (real-time bag stats update)
+            currentWeight = parseFloat(data.bag_weight);
+            itemCount = data.item_count;
+            updateBagStats();
+            
+            // Add to table
+            addShipmentToTable(data.shipment);
+            
+            // Clear manual input
+            document.getElementById('manualAwbInput').value = '';
+            
+            // Show weight warning if needed
+            if (data.weight_warning) {
+                // Audio feedback - Warning sound for weight exceeded
+                playWarningBeep();
+                toast('⚠️ ' + data.weight_warning, 5000);
+            }
+        } else {
+            // Audio feedback - Error sound for failed scans
+            playErrorBeep();
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Update bag stats display
+function updateBagStats() {
+    document.getElementById('itemCount').textContent = itemCount;
+    document.getElementById('totalWeight').textContent = currentWeight.toFixed(2) + ' KG';
+    
+    const percentage = (currentWeight / maxWeight) * 100;
+    document.getElementById('weightPercent').textContent = percentage.toFixed(0) + '%';
+    
+    const weightBar = document.getElementById('weightBar');
+    weightBar.style.width = Math.min(percentage, 100) + '%';
+    
+    // Update color based on percentage
+    weightBar.className = 'weight-indicator h-2 rounded-full ';
+    if (percentage >= 100) {
+        weightBar.classList.add('weight-exceeded');
+    } else if (percentage >= 90) {
+        weightBar.classList.add('weight-warning');
+    } else {
+        weightBar.classList.add('weight-normal');
+    }
+}
+
+// Add shipment to table
+function addShipmentToTable(shipment) {
+    const tbody = document.getElementById('shipmentsTableBody');
+    const row = document.createElement('tr');
+    row.className = 'hover:bg-gray-50';
+    row.setAttribute('data-shipment-id', shipment.id);
+    row.innerHTML = `
+        <td class="px-4 py-3 text-sm font-medium text-gray-900">${shipment.awb_number}</td>
+        <td class="px-4 py-3 text-sm text-gray-600">
+            <div>${shipment.sender_name || 'N/A'}</div>
+            <div class="text-xs text-gray-500">${shipment.sender_phone || ''}</div>
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-600">
+            <div>${shipment.recipient_name}</div>
+            <div class="text-xs text-gray-500">${shipment.recipient_phone || ''}</div>
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-600">
+            <div class="max-w-xs truncate" title="${shipment.contents || ''}">${shipment.contents || 'N/A'}</div>
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-600">${shipment.weight} KG</td>
+        <td class="px-4 py-3">
+            <span class="status-badge status-booked text-xs">${shipment.status}</span>
+        </td>
+        <td class="px-4 py-3">
+            <div class="flex gap-2">
+                <button onclick="editShipment(${shipment.id})" 
+                        class="text-xs px-3 py-1.5 bg-blue-600 text-white border border-black hover:bg-blue-700 rounded font-medium transition-colors">
+                    Edit
+                </button>
+                <button onclick="removeShipment(${shipment.id}, '${shipment.awb_number}')" 
+                        class="text-xs px-3 py-1.5 bg-red-600 text-white border border-black hover:bg-red-700 rounded font-medium transition-colors">
+                    Remove
+                </button>
+            </div>
+        </td>
+    `;
+    tbody.appendChild(row);
+}
+
+// Edit shipment
+async function editShipment(shipmentId) {
+    showLoading();
+    
+    try {
+        const response = await fetch(`/parcels/${shipmentId}/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            const parcel = data.parcel;
+            
+            // Populate form fields
+            document.getElementById('editShipmentId').value = parcel.id;
+            document.getElementById('editSenderName').value = parcel.sender_name || '';
+            document.getElementById('editSenderPhone').value = parcel.sender_phone || '';
+            document.getElementById('editSenderAddress').value = parcel.sender_address || '';
+            document.getElementById('editRecipientName').value = parcel.recipient_name || '';
+            document.getElementById('editRecipientPhone').value = parcel.recipient_phone || '';
+            document.getElementById('editRecipientAddress').value = parcel.recipient_address || '';
+            document.getElementById('editContents').value = parcel.contents || '';
+            document.getElementById('editWeight').value = parcel.weight_estimated || '';
+            document.getElementById('editWeight').dataset.oldWeight = parcel.weight_estimated || '0';
+            document.getElementById('editDeclaredValue').value = parcel.declared_value || '';
+            document.getElementById('editServiceType').value = parcel.service_type || 'EXPRESS';
+            document.getElementById('editPaymentMethod').value = parcel.payment_method || 'PREPAID';
+            document.getElementById('editIsFragile').checked = parcel.is_fragile || false;
+            document.getElementById('editIsLiquid').checked = parcel.is_liquid || false;
+            document.getElementById('editIsCod').checked = parcel.is_cod || false;
+            document.getElementById('editCodAmount').value = parcel.cod_amount || '';
+            document.getElementById('editSpecialInstructions').value = parcel.special_instructions || '';
+            
+            // Show/hide COD amount field
+            toggleCodAmount();
+            
+            // Show modal
+            showModal('editShipmentModal');
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Failed to load parcel details');
+    }
+}
+
+// Toggle COD amount field
+function toggleCodAmount() {
+    const isCod = document.getElementById('editIsCod').checked;
+    const codAmountGroup = document.getElementById('editCodAmountGroup');
+    
+    if (isCod) {
+        codAmountGroup.classList.remove('hidden');
+    } else {
+        codAmountGroup.classList.add('hidden');
+        document.getElementById('editCodAmount').value = '';
+    }
+}
+
+// Add event listener for COD checkbox
+document.addEventListener('DOMContentLoaded', function() {
+    const codCheckbox = document.getElementById('editIsCod');
+    if (codCheckbox) {
+        codCheckbox.addEventListener('change', toggleCodAmount);
+    }
+});
+
+// Save shipment edit
+async function saveShipmentEdit() {
+    const shipmentId = document.getElementById('editShipmentId').value;
+    
+    console.log('Saving shipment edit for ID:', shipmentId);
+    
+    // Validate required fields
+    const requiredFields = [
+        { id: 'editSenderName', name: 'Sender Name' },
+        { id: 'editSenderPhone', name: 'Sender Phone' },
+        { id: 'editSenderAddress', name: 'Sender Address' },
+        { id: 'editRecipientName', name: 'Recipient Name' },
+        { id: 'editRecipientPhone', name: 'Recipient Phone' },
+        { id: 'editRecipientAddress', name: 'Recipient Address' },
+        { id: 'editContents', name: 'Contents' },
+        { id: 'editWeight', name: 'Weight' },
+        { id: 'editDeclaredValue', name: 'Declared Value' }
+    ];
+    
+    for (const field of requiredFields) {
+        const element = document.getElementById(field.id);
+        if (!element) {
+            console.error('Field not found:', field.id);
+            toast(`Form field ${field.name} not found`);
+            return;
+        }
+        const value = element.value.trim();
+        if (!value) {
+            toast(`${field.name} is required`);
+            return;
+        }
+    }
+    
+    // Prepare data
+    const data = {
+        sender_name: document.getElementById('editSenderName').value.trim(),
+        sender_phone: document.getElementById('editSenderPhone').value.trim(),
+        sender_address: document.getElementById('editSenderAddress').value.trim(),
+        recipient_name: document.getElementById('editRecipientName').value.trim(),
+        recipient_phone: document.getElementById('editRecipientPhone').value.trim(),
+        recipient_address: document.getElementById('editRecipientAddress').value.trim(),
+        contents: document.getElementById('editContents').value.trim(),
+        weight_estimated: parseFloat(document.getElementById('editWeight').value),
+        declared_value: parseFloat(document.getElementById('editDeclaredValue').value),
+        service_type: document.getElementById('editServiceType').value,
+        payment_method: document.getElementById('editPaymentMethod').value,
+        is_fragile: document.getElementById('editIsFragile').checked,
+        is_liquid: document.getElementById('editIsLiquid').checked,
+        is_cod: document.getElementById('editIsCod').checked,
+        cod_amount: document.getElementById('editIsCod').checked ? parseFloat(document.getElementById('editCodAmount').value || 0) : null,
+        special_instructions: document.getElementById('editSpecialInstructions').value.trim()
+    };
+    
+    console.log('Sending data:', data);
+    
+    hideModal('editShipmentModal');
+    showLoading();
+    
+    try {
+        const response = await fetch(`/parcels/${shipmentId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        console.log('Response status:', response.status);
+        
+        const result = await response.json();
+        console.log('Response data:', result);
+        
+        hideLoading();
+        
+        if (result.success) {
+            // Update the bag weight after parcel edit
+            const oldWeight = parseFloat(document.getElementById('editWeight').dataset.oldWeight || 0);
+            currentWeight = currentWeight - oldWeight + parseFloat(data.weight_estimated);
+            updateBagStats();
+            
+            // Update the table row
+            const row = document.querySelector(`tr[data-shipment-id="${shipmentId}"]`);
+            if (row) {
+                row.querySelector('td:nth-child(2) div:first-child').textContent = data.sender_name;
+                row.querySelector('td:nth-child(2) div:last-child').textContent = data.sender_phone;
+                row.querySelector('td:nth-child(3) div:first-child').textContent = data.recipient_name;
+                row.querySelector('td:nth-child(3) div:last-child').textContent = data.recipient_phone;
+                row.querySelector('td:nth-child(4) div').textContent = data.contents;
+                row.querySelector('td:nth-child(4) div').title = data.contents;
+                row.querySelector('td:nth-child(5)').textContent = data.weight_estimated + ' KG';
+            }
+            
+            toast('✓ Parcel updated successfully');
+        } else {
+            console.error('Update failed:', result.error);
+            toast('Error: ' + result.error);
+        }
+    } catch (err) {
+        console.error('Request failed:', err);
+        hideLoading();
+        toast('Failed to update parcel: ' + err.message);
+    }
+}
+
+// Remove shipment
+async function removeShipment(shipmentId, awb) {
+    if (!confirm(`Remove ${awb} from this bag?`)) return;
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${bagId}/remove-shipment/${shipmentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Parcel removed');
+            
+            // Update stats
+            currentWeight = parseFloat(data.bag_weight);
+            itemCount = data.item_count;
+            updateBagStats();
+            
+            // Remove from table
+            const row = document.querySelector(`tr[data-shipment-id="${shipmentId}"]`);
+            if (row) row.remove();
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Seal bag
+async function sealBag() {
+    if (!confirm(`Seal ${itemCount} parcels (${currentWeight.toFixed(2)} KG)?`)) return;
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${bagId}/seal/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Bag sealed successfully');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Show unseal modal
+function showUnsealModal() {
+    document.getElementById('unsealReason').value = '';
+    document.getElementById('unsealConfirm').checked = false;
+    showModal('unsealModal');
+}
+
+// Unseal bag
+async function unsealBag() {
+    const reason = document.getElementById('unsealReason').value.trim();
+    const confirmed = document.getElementById('unsealConfirm').checked;
+    
+    if (!reason) {
+        toast('Please enter a reason');
+        return;
+    }
+    
+    if (!confirmed) {
+        toast('Please confirm you understand this action is audited');
+        return;
+    }
+    
+    hideModal('unsealModal');
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${bagId}/unseal/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ reason: reason })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Bag unsealed');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+}
+
+// Delete bag - show confirmation modal
+function deleteBag() {
+    showModal('deleteBagModal');
+}
+
+// Confirm delete bag
+document.getElementById('confirmDeleteBagBtn').onclick = async function() {
+    hideModal('deleteBagModal');
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${bagId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Bag deleted successfully');
+            setTimeout(() => window.location.href = '{% url "bags" %}', 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+};
+</script>
+{% endblock %}

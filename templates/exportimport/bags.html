@@ -22,35 +22,103 @@
 
 {% block content %}
 <!-- Stats Cards -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
     <div class="card">
-        <div class="card-body p-4">
+        <div class="card-body p-3">
             <p class="text-xs text-gray-500 mb-1">Total Bags</p>
-            <p class="text-2xl font-bold text-gray-900">{{ total_bags }}</p>
+            <p class="text-xl font-bold text-gray-900">{{ total_bags }}</p>
         </div>
     </div>
     <div class="card">
-        <div class="card-body p-4">
+        <div class="card-body p-3">
             <p class="text-xs text-gray-500 mb-1">Open</p>
-            <p class="text-2xl font-bold text-blue-600">{{ open_bags }}</p>
+            <p class="text-xl font-bold text-blue-600">{{ open_bags }}</p>
         </div>
     </div>
     <div class="card">
-        <div class="card-body p-4">
+        <div class="card-body p-3">
             <p class="text-xs text-gray-500 mb-1">Sealed</p>
-            <p class="text-2xl font-bold text-green-600">{{ sealed_bags }}</p>
+            <p class="text-xl font-bold text-green-600">{{ sealed_bags }}</p>
         </div>
     </div>
     <div class="card">
-        <div class="card-body p-4">
+        <div class="card-body p-3">
             <p class="text-xs text-gray-500 mb-1">Dispatched</p>
-            <p class="text-2xl font-bold text-gray-600">{{ dispatched_bags }}</p>
+            <p class="text-xl font-bold text-gray-600">{{ dispatched_bags }}</p>
         </div>
     </div>
 </div>
 
+<!-- Filters and Create Button -->
+<div class="card mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{% url 'bags' %}" class="space-y-3">
+            <div class="flex flex-col md:flex-row gap-4">
+                <!-- Search -->
+                <div class="flex-1">
+                    <label class="text-xs text-gray-500 mb-1 block">Search Bag Number</label>
+                    <input 
+                        type="text" 
+                        name="search" 
+                        value="{{ search }}"
+                        placeholder="Enter bag number..."
+                        class="form-input w-full"
+                    >
+                </div>
+                
+                <!-- Status Filter -->
+                <div class="w-full md:w-48">
+                    <label class="text-xs text-gray-500 mb-1 block">Status</label>
+                    <select name="status" class="form-input w-full">
+                        <option value="">All Statuses</option>
+                        {% for status_code, status_label in status_choices %}
+                        <option value="{{ status_code }}" {% if status_filter == status_code %}selected{% endif %}>
+                            {{ status_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Date From -->
+                <div class="w-full md:w-40">
+                    <label class="text-xs text-gray-500 mb-1 block">From Date</label>
+                    <input 
+                        type="date" 
+                        name="date_from" 
+                        value="{{ date_from }}"
+                        class="form-input w-full"
+                    >
+                </div>
+                
+                <!-- Date To -->
+                <div class="w-full md:w-40">
+                    <label class="text-xs text-gray-500 mb-1 block">To Date</label>
+                    <input 
+                        type="date" 
+                        name="date_to" 
+                        value="{{ date_to }}"
+                        class="form-input w-full"
+                    >
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    Apply Filters
+                </button>
+                <a href="{% url 'bags' %}" class="btn btn-secondary">
+                    Clear Filters
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Create Bag Button -->
-<div class="mb-6">
+<div class="mb-4">
     <button onclick="showCreateModal()" class="btn btn-primary flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -67,36 +135,81 @@
             <table class="w-full">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bag Number</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shipment AWB</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weight</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            <a href="?search={{ search }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&sort={% if sort_by == 'bag_number' %}-bag_number{% else %}bag_number{% endif %}" class="hover:text-gray-700">
+                                Bag Number
+                                {% if sort_by == 'bag_number' %}↑{% elif sort_by == '-bag_number' %}↓{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            <a href="?search={{ search }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&sort={% if sort_by == 'status' %}-status{% else %}status{% endif %}" class="hover:text-gray-700">
+                                Status
+                                {% if sort_by == 'status' %}↑{% elif sort_by == '-status' %}↓{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item Count</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            <a href="?search={{ search }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&sort={% if sort_by == 'weight' %}-weight{% else %}weight{% endif %}" class="hover:text-gray-700">
+                                Total Weight
+                                {% if sort_by == 'weight' %}↑{% elif sort_by == '-weight' %}↓{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created By</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            <a href="?search={{ search }}&status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}&sort={% if sort_by == 'created_at' %}-created_at{% else %}created_at{% endif %}" class="hover:text-gray-700">
+                                Created At
+                                {% if sort_by == 'created_at' %}↑{% elif sort_by == '-created_at' %}↓{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sealed At</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for bag in bags %}
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="viewBagDetails({{ bag.id }})">
+                    <tr class="{% if forloop.counter0|divisibleby:2 %}bg-gray-100{% else %}bg-white{% endif %} hover:bg-gray-200 cursor-pointer" onclick="window.location.href='{% url 'bag_detail' bag.id %}'"></tr>
                         <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ bag.bag_number }}</td>
                         <td class="px-4 py-3">
                             <span class="status-badge {% if bag.status == 'OPEN' %}status-pending{% elif bag.status == 'SEALED' %}status-booked{% elif bag.status == 'DISPATCHED' %}status-delivered{% else %}status-transit{% endif %} text-xs">
                                 {{ bag.get_status_display }}
                             </span>
                         </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ bag.get_item_count }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ bag.weight }} KG</td>
                         <td class="px-4 py-3 text-sm text-gray-600">
-                            {% if bag.shipment %}
-                                {{ bag.shipment.awb_number }}
+                            {% if bag.created_by %}
+                                {{ bag.created_by.get_full_name|default:bag.created_by.username }}
                             {% else %}
-                                <span class="text-gray-400 italic">No shipment</span>
+                                <span class="text-gray-400 italic">N/A</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">{{ bag.weight }} KG</td>
-                        <td class="px-4 py-3 text-sm text-gray-600">{{ bag.created_at|date:"M d, Y" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ bag.created_at|date:"M d, Y H:i" }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            {% if bag.sealed_at %}
+                                {{ bag.sealed_at|date:"M d, Y H:i" }}
+                            {% else %}
+                                <span class="text-gray-400 italic">-</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3">
-                            <button onclick="event.stopPropagation(); viewBagDetails({{ bag.id }})" class="text-xs text-black hover:text-gray-600 font-medium">
-                                View
-                            </button>
+                            <div class="flex gap-2" onclick="event.stopPropagation();">
+                                <a href="{% url 'bag_detail' bag.id %}" class="text-xs px-3 py-1.5 bg-black text-white border border-black hover:bg-gray-800 rounded font-medium transition-colors">
+                                    View
+                                </a>
+                                <button onclick="printBagLabel({{ bag.id }})" class="text-xs px-3 py-1.5 bg-blue-600 text-white border border-black hover:bg-blue-700 rounded font-medium transition-colors">
+                                    Print Label
+                                </button>
+                                {% if bag.status == 'SEALED' and bag.air_invoice %}
+                                <a href="{% url 'download_air_invoice' bag.id %}" target="_blank" class="text-xs px-3 py-1.5 bg-green-600 text-white border border-black hover:bg-green-700 rounded font-medium transition-colors">
+                                    Download Invoice
+                                </a>
+                                {% endif %}
+                                {% if bag.status == 'OPEN' %}
+                                <button onclick="deleteBag({{ bag.id }}, '{{ bag.bag_number }}')" class="text-xs px-3 py-1.5 bg-red-600 text-white border border-black hover:bg-red-700 rounded font-medium transition-colors">
+                                    Delete
+                                </button>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -111,8 +224,14 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
                 </svg>
             </div>
-            <p class="text-sm font-medium text-gray-900 mb-1">No bags created yet</p>
-            <p class="text-xs text-gray-500 mb-4">Create your first bag to get started</p>
+            <p class="text-sm font-medium text-gray-900 mb-1">No bags found</p>
+            <p class="text-xs text-gray-500 mb-4">
+                {% if search or status_filter or date_from or date_to %}
+                    Try adjusting your filters or create a new bag
+                {% else %}
+                    Create your first bag to get started
+                {% endif %}
+            </p>
             <button onclick="showCreateModal()" class="btn btn-primary">
                 Create Bag
             </button>
@@ -135,34 +254,25 @@
         </div>
         
         <div class="p-4 space-y-4">
-            <div class="form-group">
-                <label class="form-label text-sm font-medium">Bag Number *</label>
-                <input 
-                    type="text" 
-                    id="bagNumber"
-                    placeholder="e.g., BAG20250001"
-                    class="form-input"
-                >
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-sm text-blue-800">
+                    ℹ️ Bag number will be auto-generated when you create the bag
+                </p>
             </div>
 
             <div class="form-group">
-                <label class="form-label text-sm font-medium">Shipment (Optional)</label>
-                <div class="flex gap-2">
-                    <input 
-                        type="text" 
-                        id="shipmentAwbInput"
-                        placeholder="Enter or scan AWB number"
-                        class="form-input flex-1"
-                        readonly
-                    >
-                    <button type="button" onclick="showShipmentScanModal()" class="btn btn-secondary px-4">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                        </svg>
-                    </button>
+                <label class="form-label text-sm font-medium">Shipments (Optional)</label>
+                <div id="selectedShipmentsList" class="mb-2 space-y-1">
+                    <!-- Selected shipments will appear here -->
                 </div>
-                <p class="text-xs text-gray-500 mt-1">Click button to scan or manually enter AWB</p>
-                <input type="hidden" id="selectedShipmentId" value="">
+                <button type="button" onclick="showShipmentScanModal()" class="w-full btn btn-secondary py-2 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Add Shipment
+                </button>
+                <p class="text-xs text-gray-500 mt-1">You can add multiple shipments to this bag</p>
+                <input type="hidden" id="selectedShipmentIds" value="">
             </div>
 
             <div class="form-group">
@@ -395,18 +505,92 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Bag Confirmation Modal -->
+<div id="deleteBagModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-5">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2">Delete Bag</h3>
+                <p class="text-sm text-gray-600 mb-2">Are you sure you want to delete bag <span id="deleteBagNumber" class="font-semibold text-gray-900"></span>?</p>
+                <p class="text-sm text-red-600">This will remove all parcels from the bag and return them to RECEIVED_AT_BD status.</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideModal('deleteBagModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="confirmDeleteBtn" class="flex-1 btn btn-danger py-3">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 // Show create modal
+let selectedShipments = [];
 function showCreateModal() {
-    document.getElementById('bagNumber').value = '';
-    document.getElementById('shipmentAwbInput').value = '';
-    document.getElementById('selectedShipmentId').value = '';
+    selectedShipments = [];
+    document.getElementById('selectedShipmentsList').innerHTML = '';
+    document.getElementById('selectedShipmentIds').value = '';
     document.getElementById('bagWeight').value = '';
     showModal('createBagModal');
 }
+
+// Print bag label
+function printBagLabel(bagId) {
+    // Open print label page in new window
+    window.open(`/bags/${bagId}/label/`, '_blank');
+}
+
+// Delete bag - show confirmation modal
+let pendingDeleteBagId = null;
+function deleteBag(bagId, bagNumber) {
+    pendingDeleteBagId = bagId;
+    document.getElementById('deleteBagNumber').textContent = bagNumber;
+    showModal('deleteBagModal');
+}
+
+// Confirm delete bag
+document.getElementById('confirmDeleteBtn').onclick = async function() {
+    if (!pendingDeleteBagId) return;
+    
+    hideModal('deleteBagModal');
+    showLoading();
+    
+    try {
+        const response = await fetch(`/bags/${pendingDeleteBagId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Bag deleted successfully');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+    
+    pendingDeleteBagId = null;
+};
 
 // Modal scanner variables
 let modalQrScanner = null;
@@ -508,11 +692,51 @@ async function searchShipmentByAwb() {
 function selectFoundShipment() {
     if (!foundShipmentId) return;
     
-    document.getElementById('shipmentAwbInput').value = foundShipmentAwb;
-    document.getElementById('selectedShipmentId').value = foundShipmentId;
+    // Check if already selected
+    if (selectedShipments.find(s => s.id === foundShipmentId)) {
+        toast('Shipment already added');
+        return;
+    }
+    
+    // Add to selected shipments
+    selectedShipments.push({
+        id: foundShipmentId,
+        awb: foundShipmentAwb
+    });
+    
+    updateSelectedShipmentsList();
     stopModalScanner();
     hideModal('shipmentScanModal');
-    toast('✓ Shipment selected');
+    toast('✓ Shipment added');
+}
+
+// Remove shipment from selection
+function removeSelectedShipment(shipmentId) {
+    selectedShipments = selectedShipments.filter(s => s.id !== shipmentId);
+    updateSelectedShipmentsList();
+}
+
+// Update selected shipments list display
+function updateSelectedShipmentsList() {
+    const container = document.getElementById('selectedShipmentsList');
+    const idsInput = document.getElementById('selectedShipmentIds');
+    
+    if (selectedShipments.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 italic">No shipments selected</p>';
+        idsInput.value = '';
+    } else {
+        container.innerHTML = selectedShipments.map(s => `
+            <div class="flex items-center justify-between bg-gray-100 rounded px-3 py-2">
+                <span class="text-sm font-medium">${s.awb}</span>
+                <button onclick="removeSelectedShipment(${s.id})" class="text-red-600 hover:text-red-800">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        `).join('');
+        idsInput.value = selectedShipments.map(s => s.id).join(',');
+    }
 }
 
 // Select from dropdown
@@ -522,7 +746,7 @@ function selectFromDropdown() {
     
     if (!selectedOption.value) return;
     
-    const id = selectedOption.value;
+    const id = parseInt(selectedOption.value);
     const awb = selectedOption.getAttribute('data-awb');
     const recipient = selectedOption.getAttribute('data-recipient');
     const weight = selectedOption.getAttribute('data-weight');
@@ -536,25 +760,12 @@ function selectFromDropdown() {
     document.getElementById('foundWeight').textContent = weight + ' KG';
     document.getElementById('foundStatus').textContent = 'Status: ' + status;
     document.getElementById('shipmentInfo').classList.remove('hidden');
-    
-    // Auto-select
-    document.getElementById('shipmentAwbInput').value = awb;
-    document.getElementById('selectedShipmentId').value = id;
-    stopModalScanner();
-    hideModal('shipmentScanModal');
-    toast('✓ Shipment selected');
 }
 
 // Create bag
 async function createBag() {
-    const bagNumber = document.getElementById('bagNumber').value.trim();
-    const shipmentId = document.getElementById('selectedShipmentId').value;
+    const shipmentIds = document.getElementById('selectedShipmentIds').value;
     const weight = document.getElementById('bagWeight').value;
-
-    if (!bagNumber) {
-        toast('Please enter bag number');
-        return;
-    }
 
     showLoading();
     
@@ -566,8 +777,7 @@ async function createBag() {
                 'X-CSRFToken': '{{ csrf_token }}'
             },
             body: JSON.stringify({
-                bag_number: bagNumber,
-                shipment_id: shipmentId || null,
+                shipment_ids: shipmentIds ? shipmentIds.split(',').map(id => parseInt(id)) : [],
                 weight: weight || 0
             })
         });

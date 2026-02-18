@@ -11,7 +11,7 @@ from unfold.decorators import display
 
 from .models import (
     Customer, Shipment, Bag, Manifest, TrackingEvent,
-    DeliveryProof, ShipmentException, Location, StaffProfile
+    DeliveryProof, ShipmentException, Location, StaffProfile, AirInvoice
 )
 
 
@@ -348,24 +348,43 @@ class ShipmentAdmin(ModelAdmin):
 class BagAdmin(ModelAdmin):
     change_form_template = 'admin/exportimport/bag_change_form.html'
     
-    list_display = ['bag_number', 'shipment', 'status', 'weight', 'sealed_by', 'sealed_at', 'created_at']
+    list_display = ['bag_number', 'display_item_count', 'display_weight', 'status', 'created_by', 'sealed_by', 'sealed_at', 'created_at']
     list_filter = ['status', 'created_at', 'sealed_at']
     search_fields = ['bag_number', 'shipment__awb_number']
-    readonly_fields = ['sealed_at', 'sealed_by', 'created_at', 'display_qrcode', 'display_barcode']
+    readonly_fields = ['sealed_at', 'sealed_by', 'created_at', 'unsealed_at', 'display_qrcode', 'display_barcode']
     date_hierarchy = 'created_at'
-    autocomplete_fields = ['shipment']
+    filter_horizontal = ('shipment',)
+    
+    @display(description=_("Item Count"))
+    def display_item_count(self, obj):
+        """Display count of shipments in the bag"""
+        count = obj.get_item_count()
+        return f"{count}"
+    
+    @display(description=_("Weight (KG)"))
+    def display_weight(self, obj):
+        """Display bag weight"""
+        return f"{obj.weight} KG"
     
     fieldsets = (
         (_('Bag Information'), {
             'fields': (
                 ('bag_number', 'status'),
                 ('shipment', 'weight'),
+                ('created_by', 'created_at'),
             ),
             'classes': ['tab'],
         }),
         (_('Seal Information'), {
             'fields': (
-                ('sealed_by', 'sealed_at', 'created_at'),
+                ('sealed_by', 'sealed_at'),
+            ),
+            'classes': ['tab'],
+        }),
+        (_('Unseal Information'), {
+            'fields': (
+                ('unsealed_by', 'unsealed_at'),
+                ('unseal_reason',),
             ),
             'classes': ['tab'],
         }),
@@ -394,6 +413,75 @@ class BagAdmin(ModelAdmin):
                 obj.get_barcode_url()
             )
         return "Save to generate barcode"
+
+    def get_readonly_fields(self, request, obj=None):
+        """Make bag_number readonly for existing bags"""
+        readonly = list(super().get_readonly_fields(request, obj))
+
+        # If editing existing bag, make bag_number readonly
+        if obj:  # obj exists = editing existing bag
+            if 'bag_number' not in readonly:
+                readonly.append('bag_number')
+
+        return readonly
+
+    def delete_model(self, request, obj):
+        """Override delete to handle validation"""
+        from django.contrib import messages
+        from django.core.exceptions import ValidationError
+
+        try:
+            obj.delete()
+        except ValidationError as e:
+            messages.error(request, str(e))
+
+
+
+
+# ==================== AIR INVOICE ADMIN ====================
+
+@admin.register(AirInvoice)
+class AirInvoiceAdmin(ModelAdmin):
+    list_display = ['invoice_number', 'bag', 'page_count', 'generated_at', 'generated_by', 'download_link']
+    list_filter = ['generated_at']
+    search_fields = ['invoice_number', 'bag__bag_number']
+    readonly_fields = ['invoice_number', 'bag', 'page_count', 'generated_at', 'generated_by', 'pdf_file', 'download_link']
+    date_hierarchy = 'generated_at'
+    
+    @display(description=_("Download PDF"), label=True)
+    def download_link(self, obj):
+        """Display download link for the PDF"""
+        if obj.pdf_file:
+            return format_html(
+                '<a class="button" style="padding: 5px 10px; background-color: #417690; color: white; text-decoration: none; border-radius: 4px;" href="{}" target="_blank">Download PDF</a>',
+                obj.pdf_file.url
+            )
+        return "No PDF available"
+    
+    fieldsets = (
+        (_('Invoice Information'), {
+            'fields': (
+                ('invoice_number', 'bag'),
+                ('page_count', 'pdf_file'),
+            ),
+            'classes': ['tab'],
+        }),
+        (_('Generation Details'), {
+            'fields': (
+                ('generated_by', 'generated_at'),
+                ('download_link',),
+            ),
+            'classes': ['tab'],
+        }),
+    )
+    
+    def has_add_permission(self, request):
+        """Prevent manual creation of air invoices"""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Prevent manual deletion of air invoices"""
+        return False
 
 
 # ==================== MANIFEST ADMIN ====================
