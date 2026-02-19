@@ -35,7 +35,7 @@
 <!-- Filters Card -->
 <div class="card mb-6">
     <div class="card-body p-4">
-        <form method="GET" class="space-y-4">
+        <form method="GET" id="filterForm" class="space-y-4">
             <!-- Search and Quick Filters -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <!-- Search -->
@@ -43,15 +43,16 @@
                     <input 
                         type="text" 
                         name="search" 
+                        id="searchInput"
                         value="{{ search }}"
-                        placeholder="Search manifest..."
+                        placeholder="Search by manifest #, flight #, or MAWB..."
                         class="form-input text-sm"
                     >
                 </div>
                 
                 <!-- Status Filter -->
                 <div>
-                    <select name="status" class="form-input text-sm">
+                    <select name="status" id="statusFilter" class="form-input text-sm">
                         <option value="">All Status</option>
                         <option value="DRAFT" {% if selected_status == 'DRAFT' %}selected{% endif %}>Draft</option>
                         <option value="FINALIZED" {% if selected_status == 'FINALIZED' %}selected{% endif %}>Finalized</option>
@@ -66,7 +67,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                        <span>Search</span>
+                        <span>Apply Filters</span>
                     </button>
                 </div>
             </div>
@@ -78,6 +79,7 @@
                     <input 
                         type="date" 
                         name="date_from" 
+                        id="dateFromInput"
                         value="{{ date_from }}"
                         class="form-input text-sm"
                     >
@@ -87,14 +89,15 @@
                     <input 
                         type="date" 
                         name="date_to" 
+                        id="dateToInput"
                         value="{{ date_to }}"
                         class="form-input text-sm"
                     >
                 </div>
                 <div class="flex items-end">
-                    <a href="{% url 'manifests' %}" class="w-full btn btn-secondary text-sm">
+                    <button type="button" onclick="clearFilters()" class="w-full btn btn-secondary text-sm">
                         Clear Filters
-                    </a>
+                    </button>
                 </div>
             </div>
         </form>
@@ -133,7 +136,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for manifest in manifests %}
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="viewManifestDetails({{ manifest.id }})">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='/manifests/{{ manifest.id }}/'">
                         <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ manifest.manifest_number }}</td>
                         <td class="px-4 py-3">
                             <span class="status-badge {% if manifest.status == 'DRAFT' %}status-pending{% elif manifest.status == 'FINALIZED' %}status-booked{% elif manifest.status == 'DEPARTED' %}status-transit{% else %}status-delivered{% endif %} text-xs">
@@ -145,9 +148,9 @@
                         <td class="px-4 py-3 text-sm text-gray-600">{{ manifest.total_bags }}</td>
                         <td class="px-4 py-3 text-sm text-gray-600">{{ manifest.total_weight }} KG</td>
                         <td class="px-4 py-3">
-                            <button onclick="event.stopPropagation(); viewManifestDetails({{ manifest.id }})" class="text-xs text-black hover:text-gray-600 font-medium">
+                            <a href="/manifests/{{ manifest.id }}/" class="text-xs text-black hover:text-gray-600 font-medium" onclick="event.stopPropagation()">
                                 View
-                            </button>
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
@@ -339,6 +342,59 @@
 let currentManifestId = null;
 let pendingAction = null;
 
+// Filter handling with AJAX
+function setupFilterHandlers() {
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const dateFromInput = document.getElementById('dateFromInput');
+    const dateToInput = document.getElementById('dateToInput');
+    
+    // Auto-submit on status change
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    }
+    
+    // Auto-submit on date change
+    if (dateFromInput) {
+        dateFromInput.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    }
+    
+    if (dateToInput) {
+        dateToInput.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    }
+    
+    // Optional: Add debounced search
+    let searchTimeout;
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Only auto-submit if there's text or if clearing
+                if (this.value.length >= 3 || this.value.length === 0) {
+                    filterForm.submit();
+                }
+            }, 500);
+        });
+    }
+}
+
+// Clear all filters
+function clearFilters() {
+    window.location.href = '{% url "manifests" %}';
+}
+
+// Initialize filter handlers on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setupFilterHandlers();
+});
+
 // Show create modal
 function showCreateModal() {
     document.getElementById('modalTitle').textContent = 'Create Manifest';
@@ -459,13 +515,18 @@ function displayManifestDetails(manifest) {
     if (manifest.bags.length > 0) {
         bagsList.innerHTML = manifest.bags.map(bag => {
             let shipmentInfo = '';
-            if (bag.shipment_info) {
+            // Handle multiple shipments in a bag
+            if (bag.shipment_info && bag.shipment_info.length > 0) {
                 shipmentInfo = `
                     <div class="mt-2 pt-2 border-t border-gray-100">
-                        <p class="text-xs text-gray-500 mb-1">Shipment Details:</p>
-                        <p class="text-xs font-medium text-gray-900">${bag.shipment_info.awb_number}</p>
-                        <p class="text-xs text-gray-600">To: ${bag.shipment_info.recipient_name}</p>
-                        <p class="text-xs text-gray-600">${bag.shipment_info.status} • ${bag.shipment_info.weight} KG</p>
+                        <p class="text-xs text-gray-500 mb-1">Shipments (${bag.shipment_count}):</p>
+                        ${bag.shipment_info.map(shipment => `
+                            <div class="mb-2 last:mb-0">
+                                <p class="text-xs font-medium text-gray-900">${shipment.awb_number}</p>
+                                <p class="text-xs text-gray-600">To: ${shipment.recipient_name}</p>
+                                <p class="text-xs text-gray-600">${shipment.status} • ${shipment.weight} KG</p>
+                            </div>
+                        `).join('')}
                     </div>
                 `;
             }
@@ -476,7 +537,7 @@ function displayManifestDetails(manifest) {
                         <p class="text-sm font-semibold text-gray-900">${bag.bag_number}</p>
                         <span class="text-xs px-2 py-0.5 rounded ${bag.status === 'SEALED' ? 'bg-green-100 text-green-700' : bag.status === 'IN_MANIFEST' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}">${bag.status_display}</span>
                     </div>
-                    <p class="text-xs text-gray-600">${bag.shipment || 'No shipment'} • ${bag.weight} KG</p>
+                    <p class="text-xs text-gray-600">${bag.shipment_count || 0} shipment(s) • ${bag.weight} KG</p>
                     ${shipmentInfo}
                 </div>
             `;

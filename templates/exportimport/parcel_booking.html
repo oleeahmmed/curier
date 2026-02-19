@@ -20,7 +20,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase">Total</p>
-                    <p class="text-2xl font-bold text-black mt-1">{{ parcels.count }}</p>
+                    <p class="text-2xl font-bold text-black mt-1">{{ total_count }}</p>
                 </div>
                 <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,7 +36,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase">Pending</p>
-                    <p class="text-2xl font-bold text-black mt-1">{% for p in parcels %}{% if p.current_status == 'PENDING' %}{{ forloop.counter }}{% endif %}{% endfor %}</p>
+                    <p class="text-2xl font-bold text-black mt-1">{{ pending_count }}</p>
                 </div>
                 <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +52,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase">Booked</p>
-                    <p class="text-2xl font-bold text-black mt-1">{% for p in parcels %}{% if p.current_status == 'BOOKED' %}{{ forloop.counter }}{% endif %}{% endfor %}</p>
+                    <p class="text-2xl font-bold text-black mt-1">{{ booked_count }}</p>
                 </div>
                 <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,7 +68,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-medium text-gray-500 uppercase">In Transit</p>
-                    <p class="text-2xl font-bold text-black mt-1">{% for p in parcels %}{% if p.current_status != 'PENDING' and p.current_status != 'BOOKED' and p.current_status != 'DELIVERED' and p.current_status != 'DELIVERED_IN_HK' %}{{ forloop.counter }}{% endif %}{% endfor %}</p>
+                    <p class="text-2xl font-bold text-black mt-1">{{ in_transit_count }}</p>
                 </div>
                 <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">

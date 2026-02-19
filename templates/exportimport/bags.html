@@ -117,13 +117,19 @@
     </div>
 </div>
 
-<!-- Create Bag Button -->
-<div class="mb-4">
+<!-- Create Bag Button & MAWB Search -->
+<div class="mb-4 flex flex-col md:flex-row gap-3">
     <button onclick="showCreateModal()" class="btn btn-primary flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
         <span>Create New Bag</span>
+    </button>
+    <button onclick="showMAWBSearchModal()" class="btn btn-secondary flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        <span>Search Manifest by MAWB</span>
     </button>
 </div>
 
@@ -526,6 +532,127 @@
                 </button>
                 <button id="confirmDeleteBtn" class="flex-1 btn btn-danger py-3">
                     Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MAWB Search Modal -->
+<div id="mawbSearchModal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <button onclick="hideModal('mawbSearchModal')" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <h3 class="text-base font-semibold text-gray-900">Search Manifest by MAWB</h3>
+            <div class="w-10"></div>
+        </div>
+        
+        <div class="p-4 space-y-4 max-h-[85vh] overflow-y-auto">
+            <!-- Search Input -->
+            <div class="form-group">
+                <label class="form-label text-sm font-medium">Enter MAWB Number</label>
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="mawbSearchInput"
+                        placeholder="e.g., 123-45678901"
+                        class="form-input flex-1"
+                        onkeypress="if(event.key==='Enter') searchByMAWB()"
+                    >
+                    <button onclick="searchByMAWB()" class="btn btn-primary px-6">
+                        Search
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="mawbSearchResults" class="hidden">
+                <!-- Manifest Info Card -->
+                <div class="bg-white border-2 border-gray-200 rounded-lg p-4">
+                    <div class="text-center mb-4">
+                        <p class="text-xs text-gray-500 mb-1">Manifest Number</p>
+                        <p class="text-xl font-bold text-gray-900" id="mawbManifestNumber"></p>
+                    </div>
+                    
+                    <div class="flex items-center justify-center mb-4">
+                        <span id="mawbManifestStatus" class="status-badge text-sm px-4 py-2"></span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-sm bg-gray-50 rounded-lg p-3">
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Flight</p>
+                            <p class="font-medium text-gray-900 text-sm" id="mawbFlight"></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">MAWB</p>
+                            <p class="font-medium text-gray-900 text-sm" id="mawbNumber"></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Departure</p>
+                            <p class="font-medium text-gray-900 text-sm" id="mawbDeparture"></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Total Bags</p>
+                            <p class="font-medium text-gray-900 text-sm" id="mawbTotalBags"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Update Actions -->
+                <div id="mawbStatusActions" class="mt-4">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-3">Update Manifest Status</h3>
+                    <div id="mawbActionButtons" class="space-y-2"></div>
+                </div>
+
+                <!-- View Details Button -->
+                <div class="mt-4">
+                    <a id="mawbViewDetailsLink" href="#" class="w-full btn btn-secondary py-3 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        <span>View Full Manifest Details</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Not Found Message -->
+            <div id="mawbNotFound" class="hidden">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                    <svg class="w-12 h-12 text-yellow-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <p class="text-sm font-medium text-gray-900 mb-1">Manifest Not Found</p>
+                    <p class="text-xs text-gray-600">No manifest found with the provided MAWB number</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Manifest Status Update Modal -->
+<div id="confirmManifestStatusModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-5">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-black rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2">Confirm Status Update</h3>
+                <p class="text-sm text-gray-600">Are you sure you want to update the manifest status to <span id="confirmManifestNewStatus" class="font-semibold text-gray-900"></span>?</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideModal('confirmManifestStatusModal')" class="flex-1 btn btn-secondary py-3">
+                    Cancel
+                </button>
+                <button id="confirmManifestStatusBtn" class="flex-1 btn btn-primary py-3">
+                    Confirm
                 </button>
             </div>
         </div>
@@ -967,6 +1094,172 @@ document.getElementById('confirmStatusBtn').onclick = async () => {
             setTimeout(() => viewBagDetails(currentBagId), 1000);
         } else {
             toast('Error: ' + data.error);
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Request failed');
+    }
+};
+</script>
+
+<script>
+// MAWB Search functionality
+let currentManifestId = null;
+let pendingManifestStatus = null;
+
+// Show MAWB search modal
+function showMAWBSearchModal() {
+    document.getElementById('mawbSearchInput').value = '';
+    document.getElementById('mawbSearchResults').classList.add('hidden');
+    document.getElementById('mawbNotFound').classList.add('hidden');
+    currentManifestId = null;
+    showModal('mawbSearchModal');
+}
+
+// Search manifest by MAWB
+async function searchByMAWB() {
+    const mawb = document.getElementById('mawbSearchInput').value.trim();
+    if (!mawb) {
+        toast('Please enter MAWB number');
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`/manifests/search/?mawb=${encodeURIComponent(mawb)}`);
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success && data.manifest) {
+            displayManifestSearchResult(data.manifest);
+            document.getElementById('mawbSearchResults').classList.remove('hidden');
+            document.getElementById('mawbNotFound').classList.add('hidden');
+        } else {
+            document.getElementById('mawbSearchResults').classList.add('hidden');
+            document.getElementById('mawbNotFound').classList.remove('hidden');
+        }
+    } catch (err) {
+        hideLoading();
+        toast('Search failed');
+        document.getElementById('mawbSearchResults').classList.add('hidden');
+        document.getElementById('mawbNotFound').classList.remove('hidden');
+    }
+}
+
+// Display manifest search result
+function displayManifestSearchResult(manifest) {
+    currentManifestId = manifest.id;
+    
+    document.getElementById('mawbManifestNumber').textContent = manifest.manifest_number;
+    document.getElementById('mawbFlight').textContent = manifest.flight_number;
+    document.getElementById('mawbNumber').textContent = manifest.mawb_number || 'N/A';
+    document.getElementById('mawbDeparture').textContent = manifest.departure_date;
+    document.getElementById('mawbTotalBags').textContent = manifest.total_bags || 0;
+    
+    // Status badge
+    let statusClass = 'status-pending';
+    if (manifest.status === 'FINALIZED') statusClass = 'status-booked';
+    else if (manifest.status === 'DEPARTED') statusClass = 'status-transit';
+    else if (manifest.status === 'ARRIVED') statusClass = 'status-delivered';
+    
+    const badge = document.getElementById('mawbManifestStatus');
+    badge.textContent = manifest.status;
+    badge.className = 'status-badge text-sm px-4 py-2 ' + statusClass;
+    
+    // View details link
+    document.getElementById('mawbViewDetailsLink').href = `/manifests/${manifest.id}/`;
+    
+    // Render status update buttons
+    renderManifestStatusButtons(manifest.status);
+}
+
+// Render manifest status update buttons
+function renderManifestStatusButtons(currentStatus) {
+    const container = document.getElementById('mawbActionButtons');
+    const actionsContainer = document.getElementById('mawbStatusActions');
+    
+    const buttons = [];
+    
+    if (currentStatus === 'FINALIZED') {
+        buttons.push({
+            status: 'DEPARTED',
+            label: 'Mark as Departed',
+            description: 'Update all shipments to HANDED_TO_AIRLINE',
+            icon: 'plane-departure'
+        });
+    } else if (currentStatus === 'DEPARTED') {
+        buttons.push({
+            status: 'IN_TRANSIT_TO_HONGKONG',
+            label: 'Mark as In Transit',
+            description: 'Update all shipments to IN_TRANSIT_TO_HK',
+            icon: 'plane'
+        });
+    }
+    
+    if (buttons.length === 0) {
+        actionsContainer.classList.add('hidden');
+        return;
+    }
+    
+    actionsContainer.classList.remove('hidden');
+    
+    const icons = {
+        'plane-departure': `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+        </svg>`,
+        'plane': `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+        </svg>`
+    };
+    
+    container.innerHTML = buttons.map(btn => `
+        <button onclick="confirmManifestStatusUpdate('${btn.status}', '${btn.label}')" class="w-full bg-white border-2 border-black hover:bg-black text-black hover:text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-200 flex items-start gap-3 text-left group">
+            <div class="w-10 h-10 bg-black group-hover:bg-white text-white group-hover:text-black rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                ${icons[btn.icon]}
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-semibold">${btn.label}</p>
+                <p class="text-xs text-gray-600 group-hover:text-gray-300 mt-0.5">${btn.description}</p>
+            </div>
+        </button>
+    `).join('');
+}
+
+// Confirm manifest status update
+function confirmManifestStatusUpdate(newStatus, label) {
+    pendingManifestStatus = newStatus;
+    document.getElementById('confirmManifestNewStatus').textContent = label;
+    showModal('confirmManifestStatusModal');
+}
+
+// Execute manifest status update
+document.getElementById('confirmManifestStatusBtn').onclick = async () => {
+    if (!currentManifestId || !pendingManifestStatus) return;
+    
+    hideModal('confirmManifestStatusModal');
+    showLoading();
+    
+    try {
+        const response = await fetch(`/manifests/${currentManifestId}/status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                status: pendingManifestStatus
+            })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            toast('✓ Manifest status updated successfully');
+            // Refresh the search results
+            setTimeout(() => searchByMAWB(), 1000);
+        } else {
+            toast('Error: ' + (data.error || 'Failed to update status'));
         }
     } catch (err) {
         hideLoading();

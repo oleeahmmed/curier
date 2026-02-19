@@ -55,10 +55,15 @@ urlpatterns = [
     
     # Manifest Management (BD Manager/Admin only)
     path('manifests/', manifest_views.ManifestListView.as_view(), name='manifests'),
+    path('manifests/search/', manifest_views.ManifestSearchByMAWBView.as_view(), name='manifest_search'),
     path('manifests/create/', manifest_views.ManifestCreateView.as_view(), name='manifest_create'),
     path('manifests/<int:pk>/', manifest_views.ManifestDetailView.as_view(), name='manifest_detail'),
     path('manifests/<int:pk>/update/', manifest_views.ManifestUpdateView.as_view(), name='manifest_update'),
     path('manifests/<int:pk>/delete/', manifest_views.ManifestDeleteView.as_view(), name='manifest_delete'),
     path('manifests/<int:pk>/finalize/', manifest_views.ManifestFinalizeView.as_view(), name='manifest_finalize'),
     path('manifests/<int:pk>/status/', manifest_views.ManifestStatusUpdateView.as_view(), name='manifest_status'),
+    path('manifests/<int:pk>/export/pdf/', manifest_views.ManifestExportPDFView.as_view(), name='manifest_export_pdf'),
+    path('manifests/<int:pk>/export/excel/', manifest_views.ManifestExportExcelView.as_view(), name='manifest_export_excel'),
+    path('manifests/<int:manifest_pk>/shipments/<int:shipment_pk>/edit/', manifest_views.ShipmentEditView.as_view(), name='shipment_edit'),
+    path('manifests/<int:manifest_pk>/shipments/<int:shipment_pk>/remove/', manifest_views.ShipmentRemoveView.as_view(), name='shipment_remove'),
 ]

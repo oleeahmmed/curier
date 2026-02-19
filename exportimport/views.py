@@ -353,8 +353,8 @@ def all_shipments(request):
     date_from = request.GET.get('date_from', '')
     date_to = request.GET.get('date_to', '')
     
-    # Base queryset with related bag and manifest
-    shipments = Shipment.objects.select_related('bag').prefetch_related('bag__manifests').all().order_by('-created_at')
+    # Base queryset with related bags and manifests
+    shipments = Shipment.objects.prefetch_related('bags', 'bags__manifests').all().order_by('-created_at')
     
     # Apply filters
     if search:
@@ -409,9 +409,21 @@ def parcel_booking(request):
         else:
             parcels = Shipment.objects.none()
     
+    # Calculate counts
+    total_count = parcels.count()
+    pending_count = parcels.filter(current_status='PENDING').count()
+    booked_count = parcels.filter(current_status='BOOKED').count()
+    in_transit_count = parcels.exclude(
+        current_status__in=['PENDING', 'BOOKED', 'DELIVERED', 'DELIVERED_IN_HK']
+    ).count()
+    
     context = {
         'user': request.user,
         'parcels': parcels,
+        'total_count': total_count,
+        'pending_count': pending_count,
+        'booked_count': booked_count,
+        'in_transit_count': in_transit_count,
     }
     return render(request, 'exportimport/parcel_booking.html', context)
 

@@ -118,6 +118,11 @@
     </div>
 
     <script>
+        // Convert username to lowercase as user types
+        document.getElementById('username').addEventListener('input', function(e) {
+            this.value = this.value.toLowerCase();
+        });
+        
         // Auto-focus on username field
         document.getElementById('username').focus();
         

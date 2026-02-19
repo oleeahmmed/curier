@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum, Max
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -206,21 +207,6 @@ class Bag(models.Model):
     unseal_reason = models.TextField(blank=True, null=True, help_text="Reason for unsealing the bag")
 
     def _generate_bag_number(self):
-        """
-        Generate next sequential bag number.
-        Format: HDK-BAG-XXXXXX where XXXXXX is zero-padded 6-digit number
-        
-        This allows for up to 999,999 bags before needing format changes.
-        
-        Examples:
-        - First bag: HDK-BAG-000001
-        - After HDK-BAG-000009: HDK-BAG-000010
-        - After HDK-BAG-000099: HDK-BAG-000100
-        - After HDK-BAG-999999: HDK-BAG-1000000 (expands beyond 6 digits)
-        """
-        from django.db.models import Max
-        
-        # Get the latest bag number
         latest_bag = Bag.objects.filter(
             bag_number__startswith='HDK-BAG-'
         ).aggregate(Max('bag_number'))
@@ -228,7 +214,6 @@ class Bag(models.Model):
         latest_number = latest_bag['bag_number__max']
         
         if latest_number:
-            # Extract numeric part using regex
             match = re.search(r'HDK-BAG-(\d+)', latest_number)
             if match:
                 next_number = int(match.group(1)) + 1
@@ -237,7 +222,6 @@ class Bag(models.Model):
         else:
             next_number = 1
         
-        # Format with zero-padding (minimum 6 digits, expands if needed)
         return f"HDK-BAG-{next_number:06d}"
 
     def save(self, *args, **kwargs):
@@ -270,13 +254,10 @@ class Bag(models.Model):
         super().delete(*args, **kwargs)
 
     def calculate_total_weight(self):
-        """Calculate total weight from all shipments in the bag"""
-        from django.db.models import Sum
         total = self.shipment.aggregate(total_weight=Sum('weight_estimated'))['total_weight']
         return total or 0
 
     def update_weight(self):
-        """Update bag weight based on shipments"""
         self.weight = self.calculate_total_weight()
         self.save(update_fields=['weight'])
 
@@ -307,20 +288,7 @@ class Bag(models.Model):
         return f"data:image/png;base64,{img_str}"
 
     def get_item_count(self):
-        """Get count of shipments in bag"""
         return self.shipment.count()
-
-    def calculate_total_weight(self):
-        """Calculate total weight from all shipments in the bag"""
-        from django.db.models import Sum
-        total = self.shipment.aggregate(total_weight=Sum('weight_estimated'))['total_weight']
-        return total or 0
-
-    def update_weight(self):
-        """Update bag weight from shipments"""
-        self.weight = self.calculate_total_weight()
-        self.save(update_fields=['weight'])
-
 
     def seal_bag(self, user):
         if self.shipment.count() == 0:
@@ -514,6 +482,19 @@ class Manifest(models.Model):
             self.manifest_number = f"MF{date_str}{random_num}"
         super().save(*args, **kwargs)
     
+    def calculate_totals(self):
+        self.total_bags = self.bags.count()
+        
+        total_parcels = 0
+        for bag in self.bags.all():
+            total_parcels += bag.shipment.count()
+        self.total_parcels = total_parcels
+        
+        weight_sum = self.bags.aggregate(total=Sum('weight'))['total']
+        self.total_weight = weight_sum if weight_sum is not None else 0
+        
+        self.save(update_fields=['total_bags', 'total_parcels', 'total_weight'])
+    
     def finalize_manifest(self, user):
         self.status = 'FINALIZED'
         self.finalized_by = user
@@ -535,12 +516,49 @@ class Manifest(models.Model):
                 )
         
         self.save()
+
     
     def __str__(self):
         return f"{self.manifest_number} - {self.flight_number}"
     
     class Meta:
         ordering = ['-departure_date', '-departure_time']
+
+
+class ManifestExport(models.Model):
+    """
+    Store generated PDF and Excel exports for finalized manifests.
+    """
+    manifest = models.OneToOneField(
+        Manifest, 
+        on_delete=models.CASCADE, 
+        related_name='export'
+    )
+    
+    pdf_file = models.FileField(
+        upload_to='manifest_exports/pdf/',
+        help_text="Generated PDF export"
+    )
+    
+    excel_file = models.FileField(
+        upload_to='manifest_exports/excel/',
+        help_text="Generated Excel export"
+    )
+    
+    generated_at = models.DateTimeField(auto_now_add=True)
+    generated_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True
+    )
+    
+    def __str__(self):
+        return f"Export for {self.manifest.manifest_number}"
+    
+    class Meta:
+        verbose_name = 'Manifest Export'
+        verbose_name_plural = 'Manifest Exports'
+        ordering = ['-generated_at']
 
 
 class TrackingEvent(models.Model):
