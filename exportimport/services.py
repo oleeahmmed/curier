@@ -376,7 +376,8 @@ class ManifestPDFGenerator:
         )
         
         content = []
-        content.append(Paragraph("CORNICHE INTERNATIONAL LTD", company_style))
+        content.append(Paragraph("Fast Line Express BD", company_style))
+        content.append(Paragraph("New Shahi Packaging & Poly Industries Ltd", company_style))
         content.append(Paragraph("MANIFEST", title_style))
         
         return content
@@ -653,9 +654,15 @@ class ManifestExcelGenerator:
         """Write header section."""
         from openpyxl.styles import Font, Alignment
         
-        # Write "CORNICHE INTERNATIONAL LTD" in first row
-        self.worksheet.cell(row=self.current_row, column=1, value="CORNICHE INTERNATIONAL LTD")
+        # Write company name in first row
+        self.worksheet.cell(row=self.current_row, column=1, value="Fast Line Express BD")
         self.worksheet.cell(row=self.current_row, column=1).font = Font(size=16, bold=True)
+        self.worksheet.cell(row=self.current_row, column=1).alignment = Alignment(horizontal='center')
+        self.current_row += 1
+        
+        # Write company details
+        self.worksheet.cell(row=self.current_row, column=1, value="New Shahi Packaging & Poly Industries Ltd")
+        self.worksheet.cell(row=self.current_row, column=1).font = Font(size=12, bold=True)
         self.worksheet.cell(row=self.current_row, column=1).alignment = Alignment(horizontal='center')
         self.worksheet.merge_cells(start_row=self.current_row, start_column=1, end_row=self.current_row, end_column=12)
         self.current_row += 1
