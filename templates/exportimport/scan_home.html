@@ -35,6 +35,22 @@
 {% endblock %}
 
 {% block content %}
+<!-- Quick Actions Bar -->
+<div class="mb-4 flex gap-3">
+    <a href="/pending-parcels/" class="btn btn-secondary flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+        </svg>
+        Pending Parcels
+    </a>
+    <button onclick="showCreateParcelModal()" class="btn btn-primary flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        Create Parcel
+    </button>
+</div>
+
 <!-- Scanner Card - Compact Design -->
 <div class="card mb-6">
     <div class="card-body p-4">
@@ -341,6 +357,184 @@
             </button>
             <button id="skipCameraBtn" class="w-full btn btn-secondary">
                 Use Manual Entry
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Create Parcel Modal -->
+<div id="createParcelModal" class="modal">
+    <div class="modal-content max-w-4xl">
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Create New Parcel</h3>
+        </div>
+        
+        <div class="p-6 max-h-[70vh] overflow-y-auto">
+            <form id="createParcelForm" class="space-y-6">
+                <!-- Customer Selection (Optional) -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-2">Link to Customer (Optional)</h4>
+                    <p class="text-xs text-gray-600 mb-3">Select an existing customer to link this parcel, or leave blank to create without customer link.</p>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Customer</label>
+                        <select id="customer_id" class="form-input">
+                            <option value="">-- No Customer --</option>
+                            {% for customer in customers %}
+                            <option value="{{ customer.id }}">{{ customer.name }} - {{ customer.phone }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Basic Info -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label class="form-label">Direction *</label>
+                        <select id="direction" class="form-input" required>
+                            <option value="BD_TO_HK">Bangladesh to Hong Kong</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Service Type *</label>
+                        <select id="service_type" class="form-input" required>
+                            <option value="EXPRESS">Express</option>
+                            <option value="STANDARD">Standard</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Payment Method *</label>
+                        <select id="payment_method" class="form-input" required>
+                            <option value="PREPAID">Prepaid</option>
+                            <option value="CASH">Cash at Warehouse</option>
+                            <option value="CREDIT">Credit Account</option>
+                            <option value="COD">Cash on Delivery</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Sender Info -->
+                <div class="border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label class="form-label">Sender Name *</label>
+                            <input type="text" id="sender_name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sender Phone *</label>
+                            <input type="text" id="sender_phone" class="form-input" required>
+                        </div>
+                        <div class="form-group md:col-span-2">
+                            <label class="form-label">Sender Address *</label>
+                            <textarea id="sender_address" class="form-input" rows="2" required></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recipient Info -->
+                <div class="border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-3">Recipient Information</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label class="form-label">Recipient Name *</label>
+                            <input type="text" id="recipient_name" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Recipient Phone *</label>
+                            <input type="text" id="recipient_phone" class="form-input" required>
+                        </div>
+                        <div class="form-group md:col-span-2">
+                            <label class="form-label">Recipient Address *</label>
+                            <textarea id="recipient_address" class="form-input" rows="2" required></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parcel Details -->
+                <div class="border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-3">Parcel Details</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="form-group">
+                            <label class="form-label">Weight (KG) *</label>
+                            <input type="number" step="0.01" id="weight_estimated" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Declared Value *</label>
+                            <input type="number" step="0.01" id="declared_value" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Currency *</label>
+                            <select id="declared_currency" class="form-input" required>
+                                <option value="USD">USD</option>
+                                <option value="HKD">HKD</option>
+                                <option value="BDT">BDT</option>
+                            </select>
+                        </div>
+                        <div class="form-group md:col-span-3">
+                            <label class="form-label">Contents *</label>
+                            <textarea id="contents" class="form-input" rows="2" required></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dimensions (Optional) -->
+                <div class="border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-3">Dimensions (Optional)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="form-group">
+                            <label class="form-label">Length (CM)</label>
+                            <input type="number" step="0.01" id="length" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Width (CM)</label>
+                            <input type="number" step="0.01" id="width" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Height (CM)</label>
+                            <input type="number" step="0.01" id="height" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Special Flags -->
+                <div class="border-t pt-4">
+                    <h4 class="text-sm font-semibold text-gray-900 mb-3">Special Handling</h4>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="is_fragile" class="form-checkbox">
+                            <span class="text-sm text-gray-700">Fragile</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="is_liquid" class="form-checkbox">
+                            <span class="text-sm text-gray-700">Contains Liquid</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="is_cod" class="form-checkbox">
+                            <span class="text-sm text-gray-700">Cash on Delivery</span>
+                        </label>
+                    </div>
+                    <div id="codAmountGroup" class="form-group mt-3 hidden">
+                        <label class="form-label">COD Amount</label>
+                        <input type="number" step="0.01" id="cod_amount" class="form-input">
+                    </div>
+                </div>
+
+                <!-- Special Instructions -->
+                <div class="border-t pt-4">
+                    <div class="form-group">
+                        <label class="form-label">Special Instructions</label>
+                        <textarea id="special_instructions" class="form-input" rows="2"></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="p-6 border-t border-gray-200 flex gap-3">
+            <button onclick="hideModal('createParcelModal')" class="flex-1 btn btn-secondary">
+                Cancel
+            </button>
+            <button onclick="submitCreateParcel()" class="flex-1 btn btn-primary">
+                Create Parcel
             </button>
         </div>
     </div>
@@ -846,5 +1040,83 @@ window.onload = () => {
 };
 
 window.onbeforeunload = () => stopAll();
+
+// Create Parcel Modal Functions
+function showCreateParcelModal() {
+    showModal('createParcelModal');
+}
+
+// Toggle COD amount field
+document.getElementById('is_cod').addEventListener('change', function() {
+    const codAmountGroup = document.getElementById('codAmountGroup');
+    if (this.checked) {
+        codAmountGroup.classList.remove('hidden');
+    } else {
+        codAmountGroup.classList.add('hidden');
+        document.getElementById('cod_amount').value = '';
+    }
+});
+
+function submitCreateParcel() {
+    const form = document.getElementById('createParcelForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const data = {
+        direction: document.getElementById('direction').value,
+        service_type: document.getElementById('service_type').value,
+        payment_method: document.getElementById('payment_method').value,
+        sender_name: document.getElementById('sender_name').value,
+        sender_phone: document.getElementById('sender_phone').value,
+        sender_address: document.getElementById('sender_address').value,
+        recipient_name: document.getElementById('recipient_name').value,
+        recipient_phone: document.getElementById('recipient_phone').value,
+        recipient_address: document.getElementById('recipient_address').value,
+        weight_estimated: document.getElementById('weight_estimated').value,
+        declared_value: document.getElementById('declared_value').value,
+        declared_currency: document.getElementById('declared_currency').value,
+        contents: document.getElementById('contents').value,
+        length: document.getElementById('length').value || null,
+        width: document.getElementById('width').value || null,
+        height: document.getElementById('height').value || null,
+        is_fragile: document.getElementById('is_fragile').checked,
+        is_liquid: document.getElementById('is_liquid').checked,
+        is_cod: document.getElementById('is_cod').checked,
+        cod_amount: document.getElementById('cod_amount').value || null,
+        special_instructions: document.getElementById('special_instructions').value,
+        customer_id: document.getElementById('customer_id').value || null
+    };
+
+    showLoading();
+    fetch('/parcels/create/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            hideModal('createParcelModal');
+            toast('✓ Parcel created successfully: ' + data.awb_number);
+            // Reset form
+            document.getElementById('createParcelForm').reset();
+            document.getElementById('codAmountGroup').classList.add('hidden');
+            // Reload page to show new parcel
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            toast('Error: ' + data.error);
+        }
+    })
+    .catch(() => {
+        hideLoading();
+        toast('Failed to create parcel');
+    });
+}
 </script>
 {% endblock %}

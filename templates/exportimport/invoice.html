@@ -18,6 +18,7 @@
         flex-direction: column;
         align-items: center;
         padding: 20px;
+        letter-spacing: -0.2px;
     }
 
     /* Print and PDF buttons */
@@ -46,6 +47,7 @@
         background: white;
         border: 2px solid black;
         padding: 5px;
+        overflow: hidden;
     }
 
     /* --- Helper Utility Classes --- */
@@ -69,243 +71,305 @@
 
     /* --- Header Section --- */
     .header {
+        position: relative;
+        width: 100%;
+        min-height: 110px;
+        padding: 10px 5px 15px 5px;
+        border-bottom: 2px solid black;
         display: flex;
-        justify-content: space-between;
         align-items: flex-start;
-        padding: 10px 5px;
     }
 
-    /* Logo Recreation */
+    /* Logo - Fixed Left */
     .logo-box {
-        border: 3px double black;
-        padding: 5px 15px;
-        text-align: center;
-        width: 180px;
+        position: absolute;
+        left: 30px;
+        top: 10px;
+        width: 220px;
+        text-align: left;
     }
-    .logo-text {
-        font-weight: 900;
-        font-size: 20px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-    }
-    .logo-sub {
-        font-size: 8px;
-        font-weight: bold;
-        text-transform: uppercase;
-        border-top: 1px solid black;
-        margin-top: 2px;
-        padding-top: 2px;
+    .logo-img {
+        max-width: 220px;
+        height: 80px;
+        object-fit: contain;
+        display: block;
     }
 
-    /* Company Info */
+    /* Company Info - Fixed Center */
     .company-info {
-        text-align: center;
-        flex-grow: 1;
+        position: absolute;
+        left: 50%;
+        top: 10px;
+        transform: translateX(-50%);
+        text-align: left;
+        width: 400px;
     }
     .company-name {
-        font-size: 24px;
+        font-size: 26px;
         margin: 0;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
         font-weight: normal;
+        letter-spacing: 1px;
+        text-align: left;
+        font-family: "Times New Roman", Times, serif;
+        text-transform: uppercase;
     }
     .contact-details {
-        font-size: 14px;
-        line-height: 1.4;
+        font-size: 11px;
+        line-height: 1.5;
+        letter-spacing: 0px;
+        text-align: left;
+    }
+    .contact-details .address-line {
+        font-size: 10px;
     }
 
-    /* Barcode Section */
+    /* Barcode - Fixed Right */
     .barcode-section {
-        text-align: center;
-        width: 200px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        width: 220px;
+        text-align: right;
     }
     .barcode-img {
-        max-width: 100%;
-        height: auto;
-        margin-bottom: 5px;
+        max-width: 220px;
+        width: 220px;
+        height: 80px;
+        object-fit: contain;
+        margin-bottom: 3px;
+        display: block;
+        margin-left: auto;
     }
     .tracking-number {
-        font-size: 14px;
+        font-size: 18px;
         font-family: "Times New Roman", Times, serif;
-        text-align: center;
+        text-align: right;
         letter-spacing: 0.5px;
+        font-weight: 900;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        max-width: 100%;
-        line-height: 1.1;
+        max-width: 220px;
+        line-height: 1;
     }
 
     /* --- Grid Layouts --- */
     .grid-row-1 {
         display: grid;
-        grid-template-columns: 100px 1fr 120px 80px 100px 100px 100px;
+        grid-template-columns: 90px 1fr 110px 70px 90px 98px 98px;
+        border-top: 2px solid black;
     }
     .cell {
         padding: 3px;
-        border-right: 1px solid black;
-        height: 50px;
+        border-right: 2px solid black;
+        height: 45px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: center;
     }
     .cell:last-child { border-right: none; }
     
     .cell-label {
-        font-size: 7px;
+        font-size: 8px;
         font-weight: bold;
         text-align: center;
-        margin-bottom: 2px;
+        margin-bottom: auto;
+        letter-spacing: -0.1px;
     }
     .cell-value {
-        font-size: 9px;
-        font-weight: 500;
+        font-size: 12px;
+        font-weight: 600;
         text-align: center;
         word-wrap: break-word;
         overflow-wrap: break-word;
         max-width: 100%;
-        line-height: 1.1;
+        line-height: 1;
         padding: 0 2px;
+        letter-spacing: -0.2px;
+        margin-bottom: auto;
     }
 
     /* Address Section */
     .address-row {
         display: flex;
-        height: 180px;
+        height: 140px;
+        border-bottom: 2px solid black;
     }
     .half-width {
         width: 50%;
         padding: 5px;
         overflow: hidden;
     }
+    .half-width:first-child {
+        border-right: 2px solid black;
+    }
     .address-text {
-        font-size: 11px;
+        font-size: 12px;
         line-height: 1.2;
-        margin-top: 5px;
+        margin-top: 4px;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        max-height: 150px;
+        max-height: 125px;
         overflow: hidden;
+        letter-spacing: -0.2px;
     }
 
     /* Contact Row */
     .contact-row {
         display: flex;
         height: 40px;
+        border-bottom: 2px solid black;
     }
     .contact-cell {
         width: 25%;
-        padding: 2px 3px;
+        padding: 3px;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         overflow: hidden;
-        border-right: 1px solid black;
+        border-right: 2px solid black;
     }
     .contact-cell:last-child {
         border-right: none;
     }
     .contact-cell .text-sm {
-        font-size: 7px;
-        margin-bottom: 2px;
+        font-size: 8px;
+        margin-bottom: 1px;
+        font-weight: bold;
+        letter-spacing: -0.1px;
     }
     .contact-cell .cell-value {
-        font-size: 9px;
+        font-size: 11px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         text-align: center;
         max-width: 100%;
         line-height: 1.1;
         padding: 0 2px;
+        letter-spacing: -0.2px;
     }
 
     /* Lower Section (Goods, Billing, Dims) */
     .details-grid {
         display: flex;
-        height: 200px;
+        height: 160px;
+        border-top: 2px solid black;
     }
     .col-goods {
         width: 50%;
-        padding: 5px;
-        border-right: 1px solid black;
+        display: flex;
+        flex-direction: column;
+        border-right: 2px solid black;
     }
     .col-billing {
         width: 25%;
-        border-right: 1px solid black;
+        border-right: 2px solid black;
         display: flex;
         flex-direction: column;
+        padding: 5px;
     }
     .col-dims {
         width: 25%;
         display: flex;
         flex-direction: column;
     }
-
-    .billing-box {
+    
+    .section-title {
+        font-size: 10px;
+        font-weight: bold;
+        text-align: center;
+        padding: 3px;
+        border-bottom: 2px solid black;
+        background-color: white;
+    }
+    
+    .section-content {
         flex: 1;
         padding: 5px;
+        overflow: hidden;
+    }
+
+    .billing-box {
+        padding: 5px;
         font-size: 10px;
+    }
+    .billing-section {
+        margin-bottom: 15px;
+    }
+    .billing-section:last-child {
+        margin-bottom: 0;
+    }
+    .billing-title {
+        font-size: 10px;
+        font-weight: bold;
+        text-decoration: underline;
+        text-align: center;
+        margin-bottom: 5px;
     }
     .checkbox-group {
         margin-top: 5px;
         font-size: 11px;
         line-height: 1.4;
+        white-space: nowrap;
     }
     .checkbox {
         display: inline-block;
         font-size: 14px;
         vertical-align: middle;
-        margin-right: 2px;
+        margin-right: 0px;
     }
 
     .dims-top {
-        height: 100px;
         padding: 5px;
         text-align: center;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        border-bottom: 2px solid black;
+        flex: 1;
     }
     .dims-bottom {
-        flex: 1;
         padding: 5px;
         text-align: center;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        flex: 1;
     }
     .dims-top .cell-value,
     .dims-bottom .cell-value {
-        font-size: 10px;
+        font-size: 12px;
         margin-top: 10px;
         word-wrap: break-word;
         overflow-wrap: break-word;
         max-width: 100%;
         padding: 0 5px;
-        line-height: 1.1;
+        line-height: 1.2;
     }
 
     .goods-text {
-        font-size: 11px;
-        margin-top: 5px;
+        font-size: 12px;
+        margin-top: 4px;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        max-height: 170px;
+        max-height: 130px;
         overflow: hidden;
         line-height: 1.2;
+        letter-spacing: -0.2px;
     }
 
     .footer {
         font-size: 9px;
         text-align: center;
-        padding: 2px;
-        border-top: 1px solid black;
+        padding: 3px;
+        border-top: 2px solid black;
+        line-height: 1.2;
+        letter-spacing: -0.1px;
     }
 
     /* Print media query to hide .no-print elements */
@@ -343,16 +407,15 @@
         
         <div class="header">
             <div class="logo-box">
-                <div class="logo-text serif">CORNICHE</div>
-                <div class="logo-sub">International Couriers</div>
+                <img src="/static/cropedlogo.png" alt="Fast Track Trans Logo" class="logo-img">
             </div>
 
             <div class="company-info serif">
-                <h1 class="company-name">CORNICHE INTERNATIONAL LIMITED</h1>
+                <h1 class="company-name">Fast Line Express</h1>
                 <div class="contact-details">
-                    Tel: (852) 2754 8600 &nbsp;&nbsp; Fax: (852) 2754 8611<br>
-                    E-mail: customer@corniche.com.hk<br>
-                    https://www.corniche.com.hk
+                    Tel: +880 1872-652029 | E-mail: csfastline@gmail.com<br>
+                    <span class="address-line">Bhuiyan Bari, House-12, Block-A, Dalipara, Jasimuddin Avenue, Uttara, Dhaka-1230</span><br>
+                    <span class="address-line">Morol Para, Boro Beraid, 100 feet, Badda, Dhaka 1205</span>
                 </div>
             </div>
 
@@ -430,41 +493,47 @@
             </div>
         </div>
 
-        <div class="details-grid b-thick-t">
+        <div class="details-grid">
             <div class="col-goods">
-                <div class="text-sm center">Description Of Goods</div>
-                <div class="goods-text">{{ shipment.contents }}</div>
+                <div class="section-title">Description Of Goods</div>
+                <div class="section-content">
+                    <div class="goods-text">{{ shipment.contents }}</div>
+                </div>
             </div>
 
             <div class="col-billing">
-                <div class="billing-box bb">
-                    <div class="text-sm center bold" style="text-decoration: underline;">Bill Transportation Charge to:</div>
-                    <div class="checkbox-group">
-                        <span class="checkbox">{% if shipment.payment_method == 'PREPAID' or shipment.payment_method == 'CASH' or shipment.payment_method == 'CREDIT' %}&#9746;{% else %}&#9744;{% endif %}</span>Shipper 
-                        <span class="checkbox">{% if shipment.payment_method == 'COD' %}&#9746;{% else %}&#9744;{% endif %}</span>Recipient 
-                        <span class="checkbox">&#9744;</span>3rd Party
-                    </div>
-                    <div style="margin-top:10px;">A/C No:</div>
-                </div>
                 <div class="billing-box">
-                    <div class="text-sm center bold" style="text-decoration: underline;">Bill Duties and Taxes to:</div>
-                    <div class="checkbox-group">
-                        <span class="checkbox">&#9744;</span>Shipper 
-                        <span class="checkbox">&#9746;</span>Recipient 
-                        <span class="checkbox">&#9744;</span>3rd Party
+                    <div class="billing-section">
+                        <div class="billing-title">Bill Transportation Charge to:</div>
+                        <div class="checkbox-group">
+                            <span class="checkbox">{% if shipment.payment_method == 'PREPAID' or shipment.payment_method == 'CASH' or shipment.payment_method == 'CREDIT' %}&#9746;{% else %}&#9744;{% endif %}</span>Shipper <span class="checkbox">{% if shipment.payment_method == 'COD' %}&#9746;{% else %}&#9744;{% endif %}</span>Recipient <span class="checkbox">&#9744;</span>3rd Party
+                        </div>
+                        <div style="margin-top:8px; display: flex; align-items: center;">
+                            <span style="margin-right: 5px;">A/C No:</span>
+                            <span style="flex: 1; border-bottom: 1px solid black; height: 1px;"></span>
+                        </div>
                     </div>
-                    <div style="margin-top:10px;">A/C No:</div>
+                    <div class="billing-section">
+                        <div class="billing-title">Bill Duties and Taxes to:</div>
+                        <div class="checkbox-group">
+                            <span class="checkbox">&#9744;</span>Shipper <span class="checkbox">&#9746;</span>Recipient <span class="checkbox">&#9744;</span>3rd Party
+                        </div>
+                        <div style="margin-top:8px; display: flex; align-items: center;">
+                            <span style="margin-right: 5px;">A/C No:</span>
+                            <span style="flex: 1; border-bottom: 1px solid black; height: 1px;"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="col-dims">
-                <div class="dims-top bb">
-                    <div class="text-sm center">Dimensions (L x W x H) cm</div>
-                    <div class="cell-value" style="margin-top: 20px;">{{ dimensions }}</div>
+                <div class="section-title">Dimensions (L x W x H) cm</div>
+                <div class="dims-top">
+                    <div class="cell-value">{{ dimensions }}</div>
                 </div>
+                <div class="section-title">Total Amount</div>
                 <div class="dims-bottom">
-                    <div class="text-sm center">Total Amount</div>
-                    <div class="cell-value" style="margin-top: 20px;">{{ shipment.declared_value }} {{ shipment.declared_currency }}</div>
+                    <div class="cell-value">{{ shipment.declared_value }} {{ shipment.declared_currency }}</div>
                 </div>
             </div>
         </div>

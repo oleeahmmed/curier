@@ -94,11 +94,15 @@ def scan_home(request):
             # Clear invalid bag from session
             request.session.pop('current_bag_id', None)
     
+    # Get all customers for the create parcel form
+    customers = Customer.objects.all().order_by('name')
+    
     context = {
         'user': request.user,
         'user_role': user_role,
         'recent_scans': Shipment.objects.exclude(current_status='PENDING').order_by('-updated_at')[:10],
-        'current_bag': current_bag
+        'current_bag': current_bag,
+        'customers': customers
     }
     return render(request, 'exportimport/scan_home.html', context)
 
@@ -431,9 +435,8 @@ def parcel_booking(request):
 @login_required(login_url='login')
 @require_http_methods(["POST"])
 def create_parcel(request):
-    """Create new parcel - Non-staff users"""
-    if request.user.is_staff:
-        return JsonResponse({'success': False, 'error': 'Staff users cannot book parcels here'}, status=403)
+    """Create new parcel - Both staff and non-staff users"""
+    # Staff can create parcels, non-staff can only create for themselves
     
     try:
         data = json.loads(request.body)
@@ -452,18 +455,36 @@ def create_parcel(request):
                     'error': f'{field.replace("_", " ").title()} is required'
                 }, status=400)
         
-        # Get or create customer for this user
-        customer, _ = Customer.objects.get_or_create(
-            user=request.user,
-            defaults={
-                'name': request.user.get_full_name() or request.user.username,
-                'phone': data.get('sender_phone'),
-                'email': request.user.email,
-                'address': data.get('sender_address'),
-            }
-        )
+        # For staff: allow selecting customer or creating without customer
+        # For non-staff: auto-assign to their customer profile
+        customer = None
+        if request.user.is_staff:
+            # Staff can optionally link to a customer
+            customer_id = data.get('customer_id')
+            if customer_id:
+                try:
+                    customer = Customer.objects.get(id=customer_id)
+                except Customer.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Selected customer not found'
+                    }, status=400)
+        else:
+            # Get or create customer for non-staff user
+            customer, _ = Customer.objects.get_or_create(
+                user=request.user,
+                defaults={
+                    'name': request.user.get_full_name() or request.user.username,
+                    'phone': data.get('sender_phone'),
+                    'email': request.user.email,
+                    'address': data.get('sender_address'),
+                }
+            )
         
-        # Create shipment with PENDING status
+        # Determine initial status: staff can create as BOOKED, non-staff creates as PENDING
+        initial_status = 'BOOKED' if request.user.is_staff else 'PENDING'
+        
+        # Create shipment
         shipment = Shipment.objects.create(
             direction=data['direction'],
             customer=customer,
@@ -481,29 +502,33 @@ def create_parcel(request):
             recipient_country=data.get('recipient_country', 'Hong Kong' if data['direction'] == 'BD_TO_HK' else 'Bangladesh'),
             service_type=data.get('service_type', 'EXPRESS'),
             payment_method=data.get('payment_method', 'PREPAID'),
-            current_status='PENDING',  # Set to PENDING
+            current_status=initial_status,
             booked_by=request.user,
             is_fragile=data.get('is_fragile', False),
             is_liquid=data.get('is_liquid', False),
             is_cod=data.get('is_cod', False),
             cod_amount=data.get('cod_amount'),
             special_instructions=data.get('special_instructions', ''),
+            length=data.get('length'),
+            width=data.get('width'),
+            height=data.get('height'),
         )
         
         # Create tracking event
         TrackingEvent.objects.create(
             shipment=shipment,
-            status='PENDING',
-            description='Parcel booking created',
-            location='Online',
+            status=initial_status,
+            description=f'Parcel created by {"staff" if request.user.is_staff else "customer"}',
+            location='Staff Dashboard' if request.user.is_staff else 'Online',
             updated_by=request.user
         )
         
         return JsonResponse({
             'success': True,
-            'message': 'Parcel booking created successfully',
+            'message': f'Parcel {"booked" if request.user.is_staff else "created"} successfully',
             'parcel_id': shipment.id,
-            'awb_number': shipment.awb_number
+            'awb_number': shipment.awb_number,
+            'status': initial_status
         })
     
     except Exception as e:
