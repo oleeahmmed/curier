@@ -32,7 +32,6 @@ db.sqlite3-journal
 *.swo
 *~
 .DS_Store
-.kiro/
 
 # Testing
 .coverage

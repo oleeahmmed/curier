@@ -3,563 +3,546 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HAWB - {{ shipment.awb_number }}</title>
+<title>Shipping Label - {{ shipment.awb_number }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
 <style>
-    * {
-        box-sizing: border-box;
-        -webkit-print-color-adjust: exact;
-    }
+* {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+}
 
-    body {
-        font-family: Arial, Helvetica, sans-serif;
-        background-color: #f0f0f0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 20px;
-        letter-spacing: -0.2px;
-    }
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    letter-spacing: -0.2px;
+}
 
-    /* Print and PDF buttons */
+/* Print and PDF buttons */
+.no-print {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.no-print button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+.no-print button:hover {
+    background-color: #0056b3;
+}
+
+.label-container {
+    width: 900px;
+    background: white;
+    border: 2px solid black;
+    padding: 5px;
+    overflow: hidden;
+}
+
+/* --- Helper Utility Classes --- */
+.flex { display: flex; }
+.col { flex-direction: column; }
+.row { flex-direction: row; }
+.center { align-items: center; justify-content: center; }
+.bold { font-weight: bold; }
+.text-sm { font-size: 10px; margin-bottom: 2px; }
+.text-md { font-size: 14px; }
+.text-lg { font-size: 18px; }
+.serif { font-family: "Times New Roman", Times, serif; }
+
+/* Borders */
+.bt { border-top: 1px solid black; }
+.bb { border-bottom: 1px solid black; }
+.bl { border-left: 1px solid black; }
+.br { border-right: 1px solid black; }
+.b-thick-t { border-top: 2px solid black; }
+.b-thick-b { border-bottom: 2px solid black; }
+
+/* --- Header Section --- */
+.header {
+    position: relative;
+    width: 100%;
+    min-height: 110px;
+    padding: 10px 5px 15px 5px;
+    border-bottom: 2px solid black;
+    display: flex;
+    align-items: flex-start;
+}
+
+/* Logo - Fixed Left */
+.logo-box {
+    position: absolute;
+    left: 30px;
+    top: 10px;
+    width: 220px;
+    text-align: left;
+}
+.logo-img {
+    max-width: 220px;
+    height: 80px;
+    object-fit: contain;
+    display: block;
+}
+
+/* Company Info - Fixed Center */
+.company-info {
+    position: absolute;
+    left: 50%;
+    top: 10px;
+    transform: translateX(-50%);
+    text-align: left;
+    width: 400px;
+}
+.company-name {
+    font-size: 26px;
+    margin: 0;
+    margin-bottom: 8px;
+    font-weight: normal;
+    letter-spacing: 1px;
+    text-align: left;
+    font-family: "Times New Roman", Times, serif;
+    text-transform: uppercase;
+}
+.contact-details {
+    font-size: 11px;
+    line-height: 1.5;
+    letter-spacing: 0px;
+    text-align: left;
+}
+.contact-details .address-line {
+    font-size: 10px;
+}
+
+/* Barcode - Fixed Right */
+.barcode-section {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 220px;
+    text-align: right;
+}
+.barcode-img {
+    max-width: 220px;
+    width: 220px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 3px;
+    display: block;
+    margin-left: auto;
+}
+.tracking-number {
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    text-align: right;
+    letter-spacing: 0.5px;
+    font-weight: 900;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 220px;
+    line-height: 1;
+}
+
+/* --- Grid Layouts --- */
+.grid-row-1 {
+    display: grid;
+    grid-template-columns: 90px 1fr 110px 70px 90px 98px 98px;
+    border-top: 2px solid black;
+}
+.cell {
+    padding: 3px;
+    border-right: 2px solid black;
+    height: 45px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+}
+.cell:last-child { border-right: none; }
+
+.cell-label {
+    font-size: 8px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: auto;
+    letter-spacing: -0.1px;
+}
+.cell-value {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    line-height: 1;
+    padding: 0 2px;
+    letter-spacing: -0.2px;
+    margin-bottom: auto;
+}
+
+/* Address Section */
+.address-row {
+    display: flex;
+    height: 140px;
+    border-bottom: 2px solid black;
+}
+.half-width {
+    width: 50%;
+    padding: 5px;
+    overflow: hidden;
+}
+.half-width:first-child {
+    border-right: 2px solid black;
+}
+.address-text {
+    font-size: 12px;
+    line-height: 1.2;
+    margin-top: 4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-height: 125px;
+    overflow: hidden;
+    letter-spacing: -0.2px;
+}
+
+/* Contact Row */
+.contact-row {
+    display: flex;
+    height: 40px;
+    border-bottom: 2px solid black;
+}
+.contact-cell {
+    width: 25%;
+    padding: 3px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    border-right: 2px solid black;
+}
+.contact-cell:last-child {
+    border-right: none;
+}
+.contact-cell .text-sm {
+    font-size: 8px;
+    margin-bottom: 1px;
+    font-weight: bold;
+    letter-spacing: -0.1px;
+}
+.contact-cell .cell-value {
+    font-size: 11px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-align: center;
+    max-width: 100%;
+    line-height: 1.1;
+    padding: 0 2px;
+    letter-spacing: -0.2px;
+}
+
+/* Lower Section (Goods, Billing, Dims) */
+.details-grid {
+    display: flex;
+    height: 160px;
+    border-top: 2px solid black;
+}
+.col-goods {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    border-right: 2px solid black;
+}
+.col-billing {
+    width: 25%;
+    border-right: 2px solid black;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+}
+.col-dims {
+    width: 25%;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-title {
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    padding: 3px;
+    border-bottom: 2px solid black;
+    background-color: white;
+}
+
+.section-content {
+    flex: 1;
+    padding: 5px;
+    overflow: hidden;
+}
+
+.billing-box {
+    padding: 5px;
+    font-size: 10px;
+}
+.billing-section {
+    margin-bottom: 15px;
+}
+.billing-section:last-child {
+    margin-bottom: 0;
+}
+.billing-title {
+    font-size: 10px;
+    font-weight: bold;
+    text-decoration: underline;
+    text-align: center;
+    margin-bottom: 5px;
+}
+.checkbox-group {
+    margin-top: 5px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.checkbox {
+    display: inline-block;
+    font-size: 14px;
+    vertical-align: middle;
+    margin-right: 0px;
+}
+
+.dims-top {
+    padding: 5px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-bottom: 2px solid black;
+    flex: 1;
+}
+.dims-bottom {
+    padding: 5px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+}
+.dims-top .cell-value,
+.dims-bottom .cell-value {
+    font-size: 12px;
+    margin-top: 10px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    padding: 0 5px;
+    line-height: 1.2;
+}
+
+.goods-text {
+    font-size: 12px;
+    margin-top: 4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-height: 130px;
+    overflow: hidden;
+    line-height: 1.2;
+    letter-spacing: -0.2px;
+}
+
+.footer {
+    font-size: 9px;
+    text-align: center;
+    padding: 3px;
+    border-top: 2px solid black;
+    line-height: 1.2;
+    letter-spacing: -0.1px;
+}
+
+/* Print media query to hide .no-print elements */
+@media print {
     .no-print {
-        margin-bottom: 20px;
-        display: flex;
-        gap: 10px;
+        display: none !important;
     }
-
-    .no-print button {
-        padding: 10px 20px;
-        font-size: 16px;
-        cursor: pointer;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 5px;
-    }
-
-    .no-print button:hover {
-        background-color: #0056b3;
-    }
-
-    .label-container {
-        width: 900px; /* Increased from 850px for more space */
-        background: white;
-        border: 2px solid black;
-        padding: 5px;
-        overflow: hidden;
-    }
-
-    /* --- Helper Utility Classes --- */
-    .flex { display: flex; }
-    .col { flex-direction: column; }
-    .row { flex-direction: row; }
-    .center { align-items: center; justify-content: center; }
-    .bold { font-weight: bold; }
-    .text-sm { font-size: 10px; margin-bottom: 2px; }
-    .text-md { font-size: 14px; }
-    .text-lg { font-size: 18px; }
-    .serif { font-family: "Times New Roman", Times, serif; }
-    
-    /* Borders */
-    .bt { border-top: 1px solid black; }
-    .bb { border-bottom: 1px solid black; }
-    .bl { border-left: 1px solid black; }
-    .br { border-right: 1px solid black; }
-    .b-thick-t { border-top: 2px solid black; }
-    .b-thick-b { border-bottom: 2px solid black; }
-
-    /* --- Header Section --- */
-    .header {
-        position: relative;
-        width: 100%;
-        min-height: 110px;
-        padding: 10px 5px 15px 5px;
-        border-bottom: 2px solid black;
-        display: flex;
-        align-items: flex-start;
-    }
-
-    /* Logo - Fixed Left */
-    .logo-box {
-        position: absolute;
-        left: 30px;
-        top: 10px;
-        width: 220px;
-        text-align: left;
-    }
-    .logo-img {
-        max-width: 220px;
-        height: 80px;
-        object-fit: contain;
-        display: block;
-    }
-
-    /* Company Info - Fixed Center */
-    .company-info {
-        position: absolute;
-        left: 50%;
-        top: 10px;
-        transform: translateX(-50%);
-        text-align: left;
-        width: 400px;
-    }
-    .company-name {
-        font-size: 26px;
-        margin: 0;
-        margin-bottom: 8px;
-        font-weight: normal;
-        letter-spacing: 10mmpx;
-        text-align: left;
-        font-family: "Times New Roman", Times, serif;
-        text-transform: uppercase;
-    }
-    .contact-details {
-        font-size: 11px;
-        line-height: 1.5;
-        letter-spacing: 0px;
-        text-align: left;
-    }
-    .contact-details .address-line {
-        font-size: 10px;
-    }
-
-    /* Barcode - Fixed Right */
-    .barcode-section {
-        position: absolute;
-        right: 10px;
-        top: 10px;
-        width: 220px;
-        text-align: right;
-    }
-    .barcode-img {
-        max-width: 220px;
-        width: 220px;
-        height: 80px;
-        object-fit: contain;
-        margin-bottom: 3px;
-        display: block;
-        margin-left: auto;
-    }
-    .tracking-number {
-        font-size: 18px;
-        font-family: "Times New Roman", Times, serif;
-        text-align: right;
-        letter-spacing: 0.5px;
-        font-weight: 900;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 220px;
-        line-height: 1;
-    }
-
-    /* --- Grid Layouts --- */
-    .grid-row-1 {
-        display: grid;
-        grid-template-columns: 90px 1fr 110px 70px 90px 98px 98px;
-        border-top: 2px solid black;
-    }
-    .cell {
-        padding: 3px;
-        border-right: 2px solid black;
-        height: 45px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
-    }
-    .cell:last-child { border-right: none; }
-    
-    .cell-label {
-        font-size: 8px;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: auto;
-        letter-spacing: -0.1px;
-    }
-    .cell-value {
-        font-size: 12px;
-        font-weight: 600;
-        text-align: center;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 100%;
-        line-height: 1;
-        padding: 0 2px;
-        letter-spacing: -0.2px;
-        margin-bottom: auto;
-    }
-
-    /* Address Section */
-    .address-row {
-        display: flex;
-        height: 140px;
-        border-bottom: 2px solid black;
-    }
-    .half-width {
-        width: 50%;
-        padding: 5px;
-        overflow: hidden;
-    }
-    .half-width:first-child {
-        border-right: 2px solid black;
-    }
-    .address-text {
-        font-size: 12px;
-        line-height: 1.2;
-        margin-top: 4px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-height: 125px;
-        overflow: hidden;
-        letter-spacing: -0.2px;
-    }
-
-    /* Contact Row */
-    .contact-row {
-        display: flex;
-        height: 40px;
-        border-bottom: 2px solid black;
-    }
-    .contact-cell {
-        width: 25%;
-        padding: 3px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-        border-right: 2px solid black;
-    }
-    .contact-cell:last-child {
-        border-right: none;
-    }
-    .contact-cell .text-sm {
-        font-size: 8px;
-        margin-bottom: 1px;
-        font-weight: bold;
-        letter-spacing: -0.1px;
-    }
-    .contact-cell .cell-value {
-        font-size: 11px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        text-align: center;
-        max-width: 100%;
-        line-height: 1.1;
-        padding: 0 2px;
-        letter-spacing: -0.2px;
-    }
-
-    /* Lower Section (Goods, Billing, Dims) */
-    .details-grid {
-        display: flex;
-        height: 160px;
-        border-top: 2px solid black;
-    }
-    .col-goods {
-        width: 50%;
-        display: flex;
-        flex-direction: column;
-        border-right: 2px solid black;
-    }
-    .col-billing {
-        width: 25%;
-        border-right: 2px solid black;
-        display: flex;
-        flex-direction: column;
-        padding: 5px;
-    }
-    .col-dims {
-        width: 25%;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .section-title {
-        font-size: 10px;
-        font-weight: bold;
-        text-align: center;
-        padding: 3px;
-        border-bottom: 2px solid black;
+    body {
         background-color: white;
+        padding: 0;
+        margin: 0;
     }
-    
-    .section-content {
-        flex: 1;
-        padding: 5px;
-        overflow: hidden;
+    .label-container {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        page-break-inside: avoid;
     }
-
-    .billing-box {
-        padding: 5px;
-        font-size: 10px;
+    * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
-    .billing-section {
-        margin-bottom: 15px;
-    }
-    .billing-section:last-child {
-        margin-bottom: 0;
-    }
-    .billing-title {
-        font-size: 10px;
-        font-weight: bold;
-        text-decoration: underline;
-        text-align: center;
-        margin-bottom: 5px;
-    }
-    .checkbox-group {
-        margin-top: 5px;
-        font-size: 11px;
-        line-height: 1.4;
-        white-space: nowrap;
-    }
-    .checkbox {
-        display: inline-block;
-        font-size: 14px;
-        vertical-align: middle;
-        margin-right: 0px;
-    }
-
-    .dims-top {
-        padding: 5px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        border-bottom: 2px solid black;
-        flex: 1;
-    }
-    .dims-bottom {
-        padding: 5px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        flex: 1;
-    }
-    .dims-top .cell-value,
-    .dims-bottom .cell-value {
-        font-size: 12px;
-        margin-top: 10px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: 100%;
-        padding: 0 5px;
-        line-height: 1.2;
-    }
-
-    .goods-text {
-        font-size: 12px;
-        margin-top: 4px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-height: 130px;
-        overflow: hidden;
-        line-height: 1.2;
-        letter-spacing: -0.2px;
-    }
-
-    .footer {
-        font-size: 9px;
-        text-align: center;
-        padding: 3px;
-        border-top: 2px solid black;
-        line-height: 1.2;
-        letter-spacing: -0.1px;
-    }
-
-    /* Print media query to hide .no-print elements */
-    @media print {
-        .no-print {
-            display: none !important;
-        }
-        body {
-            background-color: white;
-            padding: 0;
-            margin: 0;
-        }
-        .label-container {
-            width: 100%;
-            max-width: 900px;
-            margin: 0 auto;
-            page-break-inside: avoid;
-        }
-        * {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-    }
+}
 </style>
 </head>
 <body>
 
-    <!-- Print and Save as PDF buttons -->
-    <div class="no-print">
-        <button onclick="printHAWB()">Print</button>
-        <button onclick="printHAWB()">Save as PDF</button>
+<!-- Print and Save as PDF buttons -->
+<div class="no-print">
+    <button onclick="window.print()">Print</button>
+    <button onclick="window.print()">Save as PDF</button>
+</div>
+
+<div class="label-container">
+    
+    <div class="header">
+        <div class="logo-box">
+            <img src="/static/cropedlogo.png" alt="Fast Track Trans Logo" class="logo-img">
+        </div>
+
+        <div class="company-info serif">
+            <h1 class="company-name">Fast Line Express</h1>
+            <div class="contact-details">
+                Tel: +880 1872-652029 | E-mail: csfastline@gmail.com<br>
+                <span class="address-line">Bhuiyan Bari, House-12, Block-A, Dalipara, Jasimuddin Avenue, Uttara, Dhaka-1230</span><br>
+                <span class="address-line">Morol Para, Boro Beraid, 100 feet, Badda, Dhaka 1205</span>
+            </div>
+        </div>
+
+        <div class="barcode-section">
+            <img src="{{ barcode_url }}" alt="Barcode" class="barcode-img">
+        </div>
     </div>
 
-    <script>
-        function printHAWB() {
-            // Set document title for PDF filename
-            const awbNumber = "{{ shipment.awb_number }}";
-            const originalTitle = document.title;
-            document.title = "HAWB_" + awbNumber;
-            
-            // Print
-            window.print();
-            
-            // Restore original title after print dialog closes
-            setTimeout(function() {
-                document.title = originalTitle;
-            }, 1000);
-        }
-    </script>
+    <div class="grid-row-1 b-thick-t bb">
+        <div class="cell">
+            <div class="cell-label center">Date</div>
+            <div class="cell-value bold">{{ formatted_date }}</div>
+        </div>
+        <div class="cell">
+            <div class="cell-label center">Shipper Reference</div>
+            <div class="cell-value"></div>
+        </div>
+        <div class="cell">
+            <div class="cell-label center">Shipper Account No.</div>
+            <div class="cell-value bold">{{ shipment.customer.id|default:"N/A" }}</div>
+        </div>
+        <div class="cell">
+            <div class="cell-label center">No. of Package</div>
+            <div class="cell-value bold">1</div>
+        </div>
+        <div class="cell">
+            <div class="cell-label center">Actual Weight (Kgs)</div>
+            <div class="cell-value bold">{{ shipment.weight_estimated }}</div>
+        </div>
+        <div class="cell">
+            <div class="cell-label center">Origin</div>
+            <div class="cell-value">{{ shipment.shipper_country|upper }}</div>
+        </div>
+        <div class="cell">
+            <div class="cell-label center">Destination</div>
+            <div class="cell-value">{{ shipment.recipient_country|upper }}</div>
+        </div>
+    </div>
 
-    <div class="label-container">
-        
-        <div class="header">
-            <div class="logo-box">
-                <img src="/static/cropedlogo.png" alt="Fast Track Trans Logo" class="logo-img">
+    <div class="address-row bb">
+        <div class="half-width br">
+            <div class="text-sm">From (Shipper)</div>
+            <div class="address-text">
+                <strong>{{ shipment.shipper_name }}</strong><br>
+                {{ shipment.shipper_address|linebreaksbr }}<br>
+                {{ shipment.shipper_country|upper }}
             </div>
-
-            <div class="company-info serif">
-                <h1 class="company-name">Fast Line Express</h1>
-                <div class="contact-details">
-                    Tel: +880 1872-652029 | E-mail: csfastline@gmail.com<br>
-                    <span class="address-line">Bhuiyan Bari, House-12, Block-A, Dalipara, Jasimuddin Avenue, Uttara, Dhaka-1230</span><br>
-                    <span class="address-line">Morol Para, Boro Beraid, 100 feet, Badda, Dhaka 1205</span>
-                </div>
+        </div>
+        <div class="half-width">
+            <div class="text-sm">To (Recipient)</div>
+            <div class="address-text">
+                <strong>{{ shipment.recipient_name }}</strong><br>
+                {{ shipment.recipient_address|linebreaksbr }}<br>
+                {{ shipment.recipient_country|upper }}
             </div>
+        </div>
+    </div>
 
-            <div class="barcode-section">
-                <img src="{{ barcode_url }}" alt="Barcode" class="barcode-img">
+    <div class="contact-row bb">
+        <div class="contact-cell">
+            <div class="text-sm">Phone Number</div>
+            <div class="cell-value">{{ shipment.shipper_phone }}</div>
+        </div>
+        <div class="contact-cell">
+            <div class="text-sm">Shipper's Name</div>
+            <div class="cell-value">{{ shipment.shipper_name }}</div>
+        </div>
+        <div class="contact-cell">
+            <div class="text-sm">Phone Number</div>
+            <div class="cell-value">{{ shipment.recipient_phone }}</div>
+        </div>
+        <div class="contact-cell">
+            <div class="text-sm">Recipient's Name</div>
+            <div class="cell-value">{{ shipment.recipient_name }}</div>
+        </div>
+    </div>
+
+    <div class="details-grid">
+        <div class="col-goods">
+            <div class="section-title">Description Of Goods</div>
+            <div class="section-content">
+                <div class="goods-text">{{ shipment.contents }}</div>
             </div>
         </div>
 
-        <div class="grid-row-1 b-thick-t bb">
-            <div class="cell">
-                <div class="cell-label center">Date</div>
-                <div class="cell-value bold">{{ formatted_date }}</div>
-            <div class="cell">
-                <div class="cell-label center">Origin</div>
-                <div class="cell-value">{{ shipment.shipper_country|upper }}</div>
-            </div>
-            <div class="cell">
-                <div class="cell-label center">Destination</div>
-                <div class="cell-value">{{ shipment.recipient_country|upper }}</div>
-            </div>
-        </div>
-
-        <div class="address-row bb">
-            <div class="half-width br">
-                <div class="text-sm">From (Shipper)</div>
-                <div class="address-text">
-                    <strong>{{ shipment.shipper_name }}</strong><br>
-                    {{ shipment.shipper_address|linebreaksbr }}<br>
-                    {{ shipment.shipper_country|upper }}}}
-                </div>="cell">
-                <div class="cell-label center">Origin</div>
-                <div class="cell-value">{{ shipment.sender_country|upper }}</div>
-            </div>
-            <div class="cell">
-                <div class="cell-label center">Destination</div>
-                <div class="cell-value">{{ shipment.recipient_country|upper }}</div>
-            </div>
-        </div>
-
-        <div class="address-row bb">
-            <div class="half-width br">
-                <div class="text-sm">From (Shipper)</div>
-            <div class="contact-cell">
-                <div class="text-sm">Phone Number</div>
-                <div class="cell-value">{{ shipment.shipper_phone }}</div>
-            </div>
-            <div class="contact-cell">
-                <div class="text-sm">Shipper's Name</div>
-                <div class="cell-value">{{ shipment.shipper_name }}</div>
-            </div>iv class="text-sm">To (Recipient)</div>
-                <div class="address-text">
-                    <strong>{{ shipment.recipient_name }}</strong><br>
-                    {{ shipment.recipient_address|linebreaksbr }}<br>
-                    {{ shipment.recipient_country|upper }}
-                </div>
-            </div>
-        </div>
-
-        <div class="contact-row bb">
-            <div class="contact-cell">
-                <div class="text-sm">Phone Number</div>
-                <div class="cell-value">{{ shipment.sender_phone }}</div>
-            </div>
-            <div class="contact-cell">
-                <div class="text-sm">Shipper's Name</div>
-                <div class="cell-value">{{ shipment.sender_name }}</div>
-            </div>
-            <div class="contact-cell">
-                <div class="text-sm">Phone Number</div>
-                <div class="cell-value">{{ shipment.recipient_phone }}</div>
-            </div>
-            <div class="contact-cell">
-                <div class="text-sm">Recipient's Name</div>
-                <div class="cell-value">{{ shipment.recipient_name }}</div>
-            </div>
-        </div>
-
-        <div class="details-grid">
-            <div class="col-goods">
-                <div class="section-title">Description Of Goods</div>
-                <div class="section-content">
-                    <div class="goods-text">{{ shipment.contents }}</div>
-                </div>
-            </div>
-
-            <div class="col-billing">
-                <div class="billing-box">
-                    <div class="billing-section">
-                        <div class="billing-title">Bill Transportation Charge to:</div>
-                        <div class="checkbox-group">
-                            <span class="checkbox">{% if shipment.payment_method == 'PREPAID' or shipment.payment_method == 'CASH' or shipment.payment_method == 'CREDIT' %}&#9746;{% else %}&#9744;{% endif %}</span>Shipper <span class="checkbox">{% if shipment.payment_method == 'COD' %}&#9746;{% else %}&#9744;{% endif %}</span>Recipient <span class="checkbox">&#9744;</span>3rd Party
-                        </div>
-                        <div style="margin-top:8px; display: flex; align-items: center;">
-                            <span style="margin-right: 5px;">A/C No:</span>
-                            <span style="flex: 1; border-bottom: 1px solid black; height: 1px;"></span>
-                        </div>
+        <div class="col-billing">
+            <div class="billing-box">
+                <div class="billing-section">
+                    <div class="billing-title">Bill Transportation Charge to:</div>
+                    <div class="checkbox-group">
+                        <span class="checkbox">{% if shipment.payment_method == 'PREPAID' or shipment.payment_method == 'CASH' or shipment.payment_method == 'CREDIT' %}&#9746;{% else %}&#9744;{% endif %}</span>Shipper <span class="checkbox">{% if shipment.payment_method == 'COD' %}&#9746;{% else %}&#9744;{% endif %}</span>Recipient <span class="checkbox">&#9744;</span>3rd Party
                     </div>
-                    <div class="billing-section">
-                        <div class="billing-title">Bill Duties and Taxes to:</div>
-                        <div class="checkbox-group">
-                            <span class="checkbox">&#9744;</span>Shipper <span class="checkbox">&#9746;</span>Recipient <span class="checkbox">&#9744;</span>3rd Party
-                        </div>
-                        <div style="margin-top:8px; display: flex; align-items: center;">
-                            <span style="margin-right: 5px;">A/C No:</span>
-                            <span style="flex: 1; border-bottom: 1px solid black; height: 1px;"></span>
-                        </div>
+                    <div style="margin-top:8px; display: flex; align-items: center;">
+                        <span style="margin-right: 5px;">A/C No:</span>
+                        <span style="flex: 1; border-bottom: 1px solid black; height: 1px;"></span>
+                    </div>
+                </div>
+                <div class="billing-section">
+                    <div class="billing-title">Bill Duties and Taxes to:</div>
+                    <div class="checkbox-group">
+                        <span class="checkbox">&#9744;</span>Shipper <span class="checkbox">&#9746;</span>Recipient <span class="checkbox">&#9744;</span>3rd Party
+                    </div>
+                    <div style="margin-top:8px; display: flex; align-items: center;">
+                        <span style="margin-right: 5px;">A/C No:</span>
+                        <span style="flex: 1; border-bottom: 1px solid black; height: 1px;"></span>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="col-dims">
-                <div class="section-title">Dimensions (L x W x H) cm</div>
-                <div class="dims-top">
-                    <div class="cell-value">{{ dimensions }}</div>
-                </div>
-                <div class="section-title">Total Amount</div>
-                <div class="dims-bottom">
-                    <div class="cell-value">{{ shipment.declared_value }} {{ shipment.declared_currency }}</div>
-                </div>
+        <div class="col-dims">
+            <div class="section-title">Dimensions (L x W x H) cm</div>
+            <div class="dims-top">
+                <div class="cell-value">{{ dimensions }}</div>
+            </div>
+            <div class="section-title">Total Amount</div>
+            <div class="dims-bottom">
+                <div class="cell-value">{{ shipment.declared_value }} {{ shipment.declared_currency }}</div>
             </div>
         </div>
-
-        <div class="footer">
-            This consignment note is non-negotiable, and subject to our standard conditions of carriage shown on the hereof which limit and exclude our liability.
-        </div>
-
     </div>
+
+    <div class="footer">
+        This consignment note is non-negotiable, and subject to our standard conditions of carriage shown on the hereof which limit and exclude our liability.
+    </div>
+
+</div>
 
 </body>
 </html>
