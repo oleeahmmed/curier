@@ -32,7 +32,7 @@
                 {% endif %}
                 {% if shipment.current_status != 'PENDING' %}
                 <a href="{% url 'invoice_view' shipment.id %}" class="btn btn-secondary" target="_blank">
-                    View Invoice
+                    View HAWB
                 </a>
                 {% endif %}
             </div>
@@ -103,25 +103,25 @@
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-200">
-            <!-- Sender Info -->
+            <!-- Shipper Info -->
             <div>
-                <h3 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h3>
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">Shipper Information</h3>
                 <dl class="space-y-2">
                     <div class="flex">
                         <dt class="text-sm text-gray-500 w-32">Name:</dt>
-                        <dd class="text-sm text-gray-900">{{ shipment.sender_name }}</dd>
+                        <dd class="text-sm text-gray-900">{{ shipment.shipper_name }}</dd>
                     </div>
                     <div class="flex">
                         <dt class="text-sm text-gray-500 w-32">Phone:</dt>
-                        <dd class="text-sm text-gray-900">{{ shipment.sender_phone }}</dd>
+                        <dd class="text-sm text-gray-900">{{ shipment.shipper_phone }}</dd>
                     </div>
                     <div class="flex">
                         <dt class="text-sm text-gray-500 w-32">Address:</dt>
-                        <dd class="text-sm text-gray-900">{{ shipment.sender_address }}</dd>
+                        <dd class="text-sm text-gray-900">{{ shipment.shipper_address }}</dd>
                     </div>
                     <div class="flex">
                         <dt class="text-sm text-gray-500 w-32">Country:</dt>
-                        <dd class="text-sm text-gray-900">{{ shipment.sender_country }}</dd>
+                        <dd class="text-sm text-gray-900">{{ shipment.shipper_country }}</dd>
                     </div>
                 </dl>
             </div>

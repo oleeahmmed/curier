@@ -118,20 +118,20 @@
         <div class="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
             <input type="hidden" id="editShipmentId">
             
-            <!-- Sender Information -->
+            <!-- Shipper Information -->
             <div class="bg-gray-50 rounded-lg p-3">
-                <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h4>
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Shipper Information</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div class="form-group">
-                        <label class="form-label text-sm">Sender Name *</label>
+                        <label class="form-label text-sm">Shipper Name *</label>
                         <input type="text" id="editSenderName" class="form-input" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Sender Phone *</label>
+                        <label class="form-label text-sm">Shipper Phone *</label>
                         <input type="text" id="editSenderPhone" class="form-input" required>
                     </div>
                     <div class="form-group md:col-span-2">
-                        <label class="form-label text-sm">Sender Address *</label>
+                        <label class="form-label text-sm">Shipper Address *</label>
                         <textarea id="editSenderAddress" rows="2" class="form-input" required></textarea>
                     </div>
                 </div>
@@ -598,9 +598,9 @@ async function editShipment(shipmentId, awb, weight, length, width, height, cont
             
             // Populate form fields
             document.getElementById('editShipmentId').value = parcel.id;
-            document.getElementById('editSenderName').value = parcel.sender_name || '';
-            document.getElementById('editSenderPhone').value = parcel.sender_phone || '';
-            document.getElementById('editSenderAddress').value = parcel.sender_address || '';
+            document.getElementById('editSenderName').value = parcel.shipper_name || '';
+            document.getElementById('editSenderPhone').value = parcel.shipper_phone || '';
+            document.getElementById('editSenderAddress').value = parcel.shipper_address || '';
             document.getElementById('editRecipientName').value = parcel.recipient_name || '';
             document.getElementById('editRecipientPhone').value = parcel.recipient_phone || '';
             document.getElementById('editRecipientAddress').value = parcel.recipient_address || '';
@@ -657,9 +657,9 @@ async function saveShipmentEdit() {
     
     // Validate required fields
     const requiredFields = [
-        { id: 'editSenderName', name: 'Sender Name' },
-        { id: 'editSenderPhone', name: 'Sender Phone' },
-        { id: 'editSenderAddress', name: 'Sender Address' },
+        { id: 'editSenderName', name: 'Shipper Name' },
+        { id: 'editSenderPhone', name: 'Shipper Phone' },
+        { id: 'editSenderAddress', name: 'Shipper Address' },
         { id: 'editRecipientName', name: 'Recipient Name' },
         { id: 'editRecipientPhone', name: 'Recipient Phone' },
         { id: 'editRecipientAddress', name: 'Recipient Address' },
@@ -677,9 +677,9 @@ async function saveShipmentEdit() {
     }
     
     const data = {
-        sender_name: document.getElementById('editSenderName').value,
-        sender_phone: document.getElementById('editSenderPhone').value,
-        sender_address: document.getElementById('editSenderAddress').value,
+        shipper_name: document.getElementById('editSenderName').value,
+        shipper_phone: document.getElementById('editSenderPhone').value,
+        shipper_address: document.getElementById('editSenderAddress').value,
         recipient_name: document.getElementById('editRecipientName').value,
         recipient_phone: document.getElementById('editRecipientPhone').value,
         recipient_address: document.getElementById('editRecipientAddress').value,

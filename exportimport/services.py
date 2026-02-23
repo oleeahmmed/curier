@@ -468,13 +468,13 @@ class ManifestPDFGenerator:
                 # COD indicator
                 cod_indicator = "COD" if shipment.is_cod else ""
                 
-                # Origin/Dest - using sender and recipient countries
-                origin_dest = f"{shipment.sender_country[:3].upper()} / {shipment.recipient_country[:3].upper()}"
+                # Origin/Dest - using shipper and recipient countries
+                origin_dest = f"{shipment.shipper_country[:3].upper()} / {shipment.recipient_country[:3].upper()}"
                 
                 row = [
                     str(shipment_number),
                     shipment.awb_number or 'N/A',
-                    shipment.sender_name or 'N/A',
+                    shipment.shipper_name or 'N/A',
                     Paragraph(consignee_text, getSampleStyleSheet()['Normal']),
                     origin_dest,
                     '1',  # Default to 1 piece
@@ -749,14 +749,14 @@ class ManifestExcelGenerator:
                 # COD indicator
                 cod_indicator = "COD" if shipment.is_cod else ""
                 
-                # Origin/Dest - using sender and recipient countries
-                origin_dest = f"{shipment.sender_country[:3].upper()} / {shipment.recipient_country[:3].upper()}"
+                # Origin/Dest - using shipper and recipient countries
+                origin_dest = f"{shipment.shipper_country[:3].upper()} / {shipment.recipient_country[:3].upper()}"
                 
                 # Write row data
                 row_data = [
                     shipment_number,
                     shipment.awb_number or 'N/A',
-                    shipment.sender_name or 'N/A',
+                    shipment.shipper_name or 'N/A',
                     consignee_text,
                     origin_dest,
                     1,  # Default to 1 piece

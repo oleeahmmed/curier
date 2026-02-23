@@ -169,8 +169,8 @@ def scan_shipment(request, awb):
                 'current_status': shipment.current_status,
                 'status_display': shipment.get_current_status_display(),
                 'customer_name': shipment.customer.name if shipment.customer else 'N/A',
-                'sender_name': shipment.sender_name,
-                'sender_phone': shipment.sender_phone,
+                'shipper_name': shipment.shipper_name,
+                'shipper_phone': shipment.shipper_phone,
                 'recipient_name': shipment.recipient_name,
                 'recipient_phone': shipment.recipient_phone,
                 'contents': shipment.contents,
@@ -444,7 +444,7 @@ def create_parcel(request):
         # Required fields
         required_fields = [
             'direction', 'declared_value', 'weight_estimated', 'contents',
-            'sender_name', 'sender_phone', 'sender_address',
+            'shipper_name', 'shipper_phone', 'shipper_address',
             'recipient_name', 'recipient_phone', 'recipient_address'
         ]
         
@@ -475,9 +475,9 @@ def create_parcel(request):
                 user=request.user,
                 defaults={
                     'name': request.user.get_full_name() or request.user.username,
-                    'phone': data.get('sender_phone'),
+                    'phone': data.get('shipper_phone'),
                     'email': request.user.email,
-                    'address': data.get('sender_address'),
+                    'address': data.get('shipper_address'),
                 }
             )
         
@@ -492,10 +492,10 @@ def create_parcel(request):
             declared_currency=data.get('declared_currency', 'USD'),
             weight_estimated=data['weight_estimated'],
             contents=data['contents'],
-            sender_name=data['sender_name'],
-            sender_phone=data['sender_phone'],
-            sender_address=data['sender_address'],
-            sender_country=data.get('sender_country', 'Bangladesh' if data['direction'] == 'BD_TO_HK' else 'Hong Kong'),
+            shipper_name=data['shipper_name'],
+            shipper_phone=data['shipper_phone'],
+            shipper_address=data['shipper_address'],
+            shipper_country=data.get('shipper_country', 'Bangladesh' if data['direction'] == 'BD_TO_HK' else 'Hong Kong'),
             recipient_name=data['recipient_name'],
             recipient_phone=data['recipient_phone'],
             recipient_address=data['recipient_address'],
@@ -562,10 +562,10 @@ def get_parcel(request, parcel_id):
                 'declared_currency': shipment.declared_currency,
                 'weight_estimated': str(shipment.weight_estimated),
                 'contents': shipment.contents,
-                'sender_name': shipment.sender_name,
-                'sender_phone': shipment.sender_phone,
-                'sender_address': shipment.sender_address,
-                'sender_country': shipment.sender_country,
+                'shipper_name': shipment.shipper_name,
+                'shipper_phone': shipment.shipper_phone,
+                'shipper_address': shipment.shipper_address,
+                'shipper_country': shipment.shipper_country,
                 'recipient_name': shipment.recipient_name,
                 'recipient_phone': shipment.recipient_phone,
                 'recipient_address': shipment.recipient_address,
@@ -649,9 +649,9 @@ def update_parcel(request, parcel_id):
         shipment.declared_currency = data.get('declared_currency', shipment.declared_currency)
         shipment.weight_estimated = data.get('weight_estimated', shipment.weight_estimated)
         shipment.contents = data.get('contents', shipment.contents)
-        shipment.sender_name = data.get('sender_name', shipment.sender_name)
-        shipment.sender_phone = data.get('sender_phone', shipment.sender_phone)
-        shipment.sender_address = data.get('sender_address', shipment.sender_address)
+        shipment.shipper_name = data.get('shipper_name', shipment.shipper_name)
+        shipment.shipper_phone = data.get('shipper_phone', shipment.shipper_phone)
+        shipment.shipper_address = data.get('shipper_address', shipment.shipper_address)
         shipment.recipient_name = data.get('recipient_name', shipment.recipient_name)
         shipment.recipient_phone = data.get('recipient_phone', shipment.recipient_phone)
         shipment.recipient_address = data.get('recipient_address', shipment.recipient_address)
@@ -732,9 +732,9 @@ def book_parcel(request, parcel_id):
 
         # Validate required fields before booking
         required_fields = {
-            'sender_name': shipment.sender_name,
-            'sender_phone': shipment.sender_phone,
-            'sender_address': shipment.sender_address,
+            'shipper_name': shipment.shipper_name,
+            'shipper_phone': shipment.shipper_phone,
+            'shipper_address': shipment.shipper_address,
             'recipient_name': shipment.recipient_name,
             'recipient_phone': shipment.recipient_phone,
             'recipient_address': shipment.recipient_address,

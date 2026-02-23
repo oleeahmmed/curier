@@ -801,7 +801,7 @@ async function searchShipmentByAwb() {
             foundShipmentId = shipment.id;
             foundShipmentAwb = shipment.awb_number;
             document.getElementById('foundAwb').textContent = shipment.awb_number;
-            document.getElementById('foundRecipient').textContent = shipment.sender_name + ' → ' + shipment.recipient_name;
+            document.getElementById('foundRecipient').textContent = shipment.shipper_name + ' → ' + shipment.recipient_name;
             document.getElementById('foundWeight').textContent = shipment.weight + ' KG';
             document.getElementById('foundStatus').textContent = 'Status: ' + shipment.status_display;
             document.getElementById('shipmentInfo').classList.remove('hidden');

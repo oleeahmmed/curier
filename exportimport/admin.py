@@ -194,7 +194,7 @@ class ShipmentAdmin(ModelAdmin):
 
     search_fields = [
         'awb_number', 'external_awb', 'recipient_name', 'recipient_phone',
-        'sender_name', 'contents', 'hk_reference', 'mawb_number'
+        'shipper_name', 'contents', 'hk_reference', 'mawb_number'
     ]
 
     readonly_fields = ['awb_number', 'created_at', 'updated_at', 'display_qrcode', 'display_barcode']
@@ -297,11 +297,11 @@ class ShipmentAdmin(ModelAdmin):
             'classes': ['tab'],
         }),
 
-        # ---------------- TAB 2: SENDER & RECIPIENT ----------------
-        (_('Sender Information'), {
+        # ---------------- TAB 2: SHIPPER & RECIPIENT ----------------
+        (_('Shipper Information'), {
             'fields': (
-                ('sender_name', 'sender_phone', 'sender_country'),
-                ('sender_address',),
+                ('shipper_name', 'shipper_phone', 'shipper_country'),
+                ('shipper_address',),
             ),
             'classes': ['tab'],
         }),

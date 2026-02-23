@@ -37,7 +37,7 @@
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sender</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shipper</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weight</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
@@ -54,7 +54,7 @@
                                 <span class="text-gray-400">N/A</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.sender_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.shipper_name }}</td>
                         <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.recipient_name }}</td>
                         <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.weight_estimated }} KG</td>
                         <td class="px-4 py-3 text-sm text-gray-600">{{ shipment.created_at|date:"M d, Y" }}</td>

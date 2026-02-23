@@ -160,7 +160,7 @@ class ManifestDetailView(ManifestPermissionMixin, View):
                     'recipient_name': shipment.recipient_name,
                     'recipient_phone': shipment.recipient_phone,
                     'recipient_address': shipment.recipient_address,
-                    'sender_name': shipment.sender_name,
+                    'shipper_name': shipment.shipper_name,
                     'weight': str(shipment.weight_estimated),
                     'length': str(shipment.length) if shipment.length else None,
                     'width': str(shipment.width) if shipment.width else None,

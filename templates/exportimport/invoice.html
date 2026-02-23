@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shipping Label - {{ shipment.awb_number }}</title>
+<title>HAWB - {{ shipment.awb_number }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39&display=swap" rel="stylesheet">
 <style>
     * {
@@ -109,7 +109,7 @@
         margin: 0;
         margin-bottom: 8px;
         font-weight: normal;
-        letter-spacing: 1px;
+        letter-spacing: 10mmpx;
         text-align: left;
         font-family: "Times New Roman", Times, serif;
         text-transform: uppercase;
@@ -399,9 +399,26 @@
 
     <!-- Print and Save as PDF buttons -->
     <div class="no-print">
-        <button onclick="window.print()">Print</button>
-        <button onclick="window.print()">Save as PDF</button>
+        <button onclick="printHAWB()">Print</button>
+        <button onclick="printHAWB()">Save as PDF</button>
     </div>
+
+    <script>
+        function printHAWB() {
+            // Set document title for PDF filename
+            const awbNumber = "{{ shipment.awb_number }}";
+            const originalTitle = document.title;
+            document.title = "HAWB_" + awbNumber;
+            
+            // Print
+            window.print();
+            
+            // Restore original title after print dialog closes
+            setTimeout(function() {
+                document.title = originalTitle;
+            }, 1000);
+        }
+    </script>
 
     <div class="label-container">
         
@@ -428,24 +445,24 @@
             <div class="cell">
                 <div class="cell-label center">Date</div>
                 <div class="cell-value bold">{{ formatted_date }}</div>
+            <div class="cell">
+                <div class="cell-label center">Origin</div>
+                <div class="cell-value">{{ shipment.shipper_country|upper }}</div>
             </div>
             <div class="cell">
-                <div class="cell-label center">Shipper Reference</div>
-                <div class="cell-value"></div>
+                <div class="cell-label center">Destination</div>
+                <div class="cell-value">{{ shipment.recipient_country|upper }}</div>
             </div>
-            <div class="cell">
-                <div class="cell-label center">Shipper Account No.</div>
-                <div class="cell-value bold">{{ shipment.customer.id|default:"N/A" }}</div>
-            </div>
-            <div class="cell">
-                <div class="cell-label center">No. of Package</div>
-                <div class="cell-value bold">1</div>
-            </div>
-            <div class="cell">
-                <div class="cell-label center">Actual Weight (Kgs)</div>
-                <div class="cell-value bold">{{ shipment.weight_estimated }}</div>
-            </div>
-            <div class="cell">
+        </div>
+
+        <div class="address-row bb">
+            <div class="half-width br">
+                <div class="text-sm">From (Shipper)</div>
+                <div class="address-text">
+                    <strong>{{ shipment.shipper_name }}</strong><br>
+                    {{ shipment.shipper_address|linebreaksbr }}<br>
+                    {{ shipment.shipper_country|upper }}}}
+                </div>="cell">
                 <div class="cell-label center">Origin</div>
                 <div class="cell-value">{{ shipment.sender_country|upper }}</div>
             </div>
@@ -458,14 +475,14 @@
         <div class="address-row bb">
             <div class="half-width br">
                 <div class="text-sm">From (Shipper)</div>
-                <div class="address-text">
-                    <strong>{{ shipment.sender_name }}</strong><br>
-                    {{ shipment.sender_address|linebreaksbr }}<br>
-                    {{ shipment.sender_country|upper }}
-                </div>
+            <div class="contact-cell">
+                <div class="text-sm">Phone Number</div>
+                <div class="cell-value">{{ shipment.shipper_phone }}</div>
             </div>
-            <div class="half-width">
-                <div class="text-sm">To (Recipient)</div>
+            <div class="contact-cell">
+                <div class="text-sm">Shipper's Name</div>
+                <div class="cell-value">{{ shipment.shipper_name }}</div>
+            </div>iv class="text-sm">To (Recipient)</div>
                 <div class="address-text">
                     <strong>{{ shipment.recipient_name }}</strong><br>
                     {{ shipment.recipient_address|linebreaksbr }}<br>

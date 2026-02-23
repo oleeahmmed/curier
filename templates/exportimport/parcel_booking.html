@@ -120,7 +120,7 @@
                                     <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="text-xs text-black hover:text-gray-600 font-medium">Delete</button>
                                     {% endif %}
                                     {% if parcel.current_status != 'PENDING' %}
-                                    <a href="{% url 'invoice_view' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View Invoice</a>
+                                    <a href="{% url 'invoice_view' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View HAWB</a>
                                     {% endif %}
                                     {% if not user.is_staff and parcel.current_status != 'PENDING' %}
                                     <a href="{% url 'parcel_details' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View</a>
@@ -192,11 +192,11 @@
             </div>
             
             <div class="border-t pt-4">
-                <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender Information</h4>
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Shipper Information</h4>
                 <div class="space-y-3">
-                    <input type="text" id="senderName" placeholder="Sender Name *" required class="form-input">
-                    <input type="tel" id="senderPhone" placeholder="Sender Phone *" required class="form-input">
-                    <textarea id="senderAddress" rows="2" placeholder="Sender Address *" required class="form-input"></textarea>
+                    <input type="text" id="senderName" placeholder="Shipper Name *" required class="form-input">
+                    <input type="tel" id="senderPhone" placeholder="Shipper Phone *" required class="form-input">
+                    <textarea id="senderAddress" rows="2" placeholder="Shipper Address *" required class="form-input"></textarea>
                 </div>
             </div>
             
@@ -311,9 +311,9 @@ document.getElementById('parcelForm').onsubmit = async (e) => {
         declared_currency: document.getElementById('declaredCurrency').value,
         weight_estimated: document.getElementById('weight').value,
         contents: document.getElementById('contents').value,
-        sender_name: document.getElementById('senderName').value,
-        sender_phone: document.getElementById('senderPhone').value,
-        sender_address: document.getElementById('senderAddress').value,
+        shipper_name: document.getElementById('senderName').value,
+        shipper_phone: document.getElementById('senderPhone').value,
+        shipper_address: document.getElementById('senderAddress').value,
         recipient_name: document.getElementById('recipientName').value,
         recipient_phone: document.getElementById('recipientPhone').value,
         recipient_address: document.getElementById('recipientAddress').value,
@@ -371,9 +371,9 @@ async function editParcel(id) {
             document.getElementById('declaredCurrency').value = p.declared_currency;
             document.getElementById('weight').value = p.weight_estimated;
             document.getElementById('contents').value = p.contents;
-            document.getElementById('senderName').value = p.sender_name;
-            document.getElementById('senderPhone').value = p.sender_phone;
-            document.getElementById('senderAddress').value = p.sender_address;
+            document.getElementById('senderName').value = p.shipper_name;
+            document.getElementById('senderPhone').value = p.shipper_phone;
+            document.getElementById('senderAddress').value = p.shipper_address;
             document.getElementById('recipientName').value = p.recipient_name;
             document.getElementById('recipientPhone').value = p.recipient_phone;
             document.getElementById('recipientAddress').value = p.recipient_address;
@@ -448,11 +448,11 @@ async function viewParcel(id) {
                     </div>
                     
                     <div class="border-t pt-4">
-                        <h4 class="text-sm font-semibold text-gray-900 mb-3">Sender</h4>
+                        <h4 class="text-sm font-semibold text-gray-900 mb-3">Shipper</h4>
                         <div class="text-sm space-y-1">
-                            <p><span class="text-gray-500">Name:</span> <span class="font-medium">${p.sender_name}</span></p>
-                            <p><span class="text-gray-500">Phone:</span> <span class="font-medium">${p.sender_phone}</span></p>
-                            <p><span class="text-gray-500">Address:</span> <span class="font-medium">${p.sender_address}</span></p>
+                            <p><span class="text-gray-500">Name:</span> <span class="font-medium">${p.shipper_name}</span></p>
+                            <p><span class="text-gray-500">Phone:</span> <span class="font-medium">${p.shipper_phone}</span></p>
+                            <p><span class="text-gray-500">Address:</span> <span class="font-medium">${p.shipper_address}</span></p>
                         </div>
                     </div>
                     

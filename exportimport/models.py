@@ -76,10 +76,10 @@ class Shipment(models.Model):
     direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='shipments', null=True, blank=True)
     
-    sender_name = models.CharField(max_length=200)
-    sender_phone = models.CharField(max_length=20)
-    sender_address = models.TextField()
-    sender_country = models.CharField(max_length=100, default='Bangladesh')
+    shipper_name = models.CharField(max_length=200)
+    shipper_phone = models.CharField(max_length=20)
+    shipper_address = models.TextField()
+    shipper_country = models.CharField(max_length=100, default='Bangladesh')
     
     recipient_name = models.CharField(max_length=200)
     recipient_phone = models.CharField(max_length=20)
@@ -144,10 +144,10 @@ class Shipment(models.Model):
                 self.awb_number = f"HD{date_str}{random_num}"
         
         if self.direction == 'BD_TO_HK':
-            self.sender_country = 'Bangladesh'
+            self.shipper_country = 'Bangladesh'
             self.recipient_country = 'Hong Kong'
         else:
-            self.sender_country = 'Hong Kong'
+            self.shipper_country = 'Hong Kong'
             self.recipient_country = 'Bangladesh'
         
         super().save(*args, **kwargs)
