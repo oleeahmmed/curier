@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden, FileResponse, Http404
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -11,7 +11,7 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.contrib.auth.models import User
 from .models import Customer, Shipment, Bag, TrackingEvent
-from .forms import CustomerRegistrationForm, ProfileForm, PasswordChangeForm
+from .forms import CustomerRegistrationForm, ProfileForm, PasswordChangeForm, InvoiceUploadForm
 import json
 
 
@@ -160,6 +160,14 @@ def scan_shipment(request, awb):
                     'departure_date': manifest.departure_date.strftime('%Y-%m-%d')
                 }
         
+        # Get invoice info
+        invoice_info = None
+        if shipment.invoice:
+            invoice_info = {
+                'filename': shipment.invoice.name.split('/')[-1],
+                'url': shipment.invoice.url,
+            }
+        
         data = {
             'success': True,
             'shipment': {
@@ -182,6 +190,7 @@ def scan_shipment(request, awb):
                 'service_type': shipment.get_service_type_display(),
                 'bag': bag_info,
                 'manifest': manifest_info,
+                'invoice': invoice_info,
             },
             'next_actions': next_actions,
             'tracking_history': [
@@ -421,6 +430,10 @@ def parcel_booking(request):
         current_status__in=['PENDING', 'BOOKED', 'DELIVERED', 'DELIVERED_IN_HK']
     ).count()
     
+    # Check if edit parameter is present
+    edit_parcel_id = request.GET.get('edit')
+    return_url = request.GET.get('return_url', '')
+    
     context = {
         'user': request.user,
         'parcels': parcels,
@@ -428,6 +441,8 @@ def parcel_booking(request):
         'pending_count': pending_count,
         'booked_count': booked_count,
         'in_transit_count': in_transit_count,
+        'edit_parcel_id': edit_parcel_id,
+        'return_url': return_url,
     }
     return render(request, 'exportimport/parcel_booking.html', context)
 
@@ -871,6 +886,202 @@ def invoice_view(request, shipment_id):
     return render(request, 'exportimport/invoice.html', context)
 
 
+# ==================== COMMERCIAL INVOICE MANAGEMENT ====================
+@login_required(login_url='login')
+def invoice_upload_view(request, shipment_id):
+    """
+    Handle invoice file upload for a shipment.
+    Accessible by staff and customers.
+    """
+    shipment = get_object_or_404(Shipment, id=shipment_id)
+    
+    # Check if user has access to this shipment
+    if not request.user.is_staff and shipment.customer.user != request.user:
+        return HttpResponseForbidden("You don't have permission to access this shipment")
+    
+    # Check if invoice already exists
+    if shipment.invoice:
+        messages.error(request, "An invoice already exists. Please delete it first.")
+        return redirect('parcel_details', parcel_id=shipment_id)
+    
+    if request.method == 'POST':
+        form = InvoiceUploadForm(request.POST, request.FILES, instance=shipment)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Invoice uploaded successfully")
+            return redirect('parcel_details', parcel_id=shipment_id)
+    else:
+        form = InvoiceUploadForm()
+    
+    return render(request, 'exportimport/invoice_upload.html', {
+        'form': form,
+        'shipment': shipment
+    })
+
+
+@login_required(login_url='login')
+def invoice_delete_view(request, shipment_id):
+    """
+    Handle invoice deletion.
+    Staff: always allowed
+    Customer: only when shipment status is PENDING
+    """
+    shipment = get_object_or_404(Shipment, id=shipment_id)
+    
+    # Check if user has access to this shipment
+    if not request.user.is_staff and shipment.customer.user != request.user:
+        return HttpResponseForbidden("You don't have permission to access this shipment")
+    
+    # Check if invoice exists
+    if not shipment.invoice:
+        messages.error(request, "No invoice to delete")
+        return redirect('parcel_details', parcel_id=shipment_id)
+    
+    # Permission check for customers
+    if not request.user.is_staff and shipment.current_status != 'PENDING':
+        messages.error(request, "You can only delete invoices for pending shipments")
+        return redirect('parcel_details', parcel_id=shipment_id)
+    
+    if request.method == 'POST':
+        # Delete the file from storage
+        shipment.invoice.delete(save=False)
+        shipment.invoice = None
+        shipment.save()
+        
+        messages.success(request, "Invoice deleted successfully")
+        return redirect('parcel_details', parcel_id=shipment_id)
+    
+    return render(request, 'exportimport/invoice_delete_confirm.html', {
+        'shipment': shipment
+    })
+
+
+@login_required(login_url='login')
+def invoice_download_view(request, shipment_id):
+    """
+    Serve invoice file for download.
+    Staff: always allowed
+    Customer: only when shipment status is BOOKED or later
+    """
+    shipment = get_object_or_404(Shipment, id=shipment_id)
+    
+    # Check if user has access to this shipment
+    if not request.user.is_staff and shipment.customer.user != request.user:
+        return HttpResponseForbidden("You don't have permission to access this shipment")
+    
+    # Check if invoice exists
+    if not shipment.invoice:
+        raise Http404("Invoice not found")
+    
+    # Permission check for customers
+    if not request.user.is_staff and shipment.current_status == 'PENDING':
+        return HttpResponseForbidden("Invoice not available for pending shipments")
+    
+    # Serve the file
+    response = FileResponse(shipment.invoice.open('rb'))
+    response['Content-Disposition'] = f'attachment; filename="{shipment.invoice.name}"'
+    return response
+
+
+@login_required(login_url='login')
+def invoice_generate_view(request, shipment_id):
+    """
+    Generate a commercial invoice PDF for a shipment.
+    Returns JSON for AJAX requests.
+    """
+    from .forms import InvoiceGenerationForm, ProductLineItemFormSet
+    from .services import generate_invoice_pdf
+    from django.core.files.base import ContentFile
+    
+    shipment = get_object_or_404(Shipment, id=shipment_id)
+    
+    # Check if user has access to this shipment
+    if not request.user.is_staff and (not shipment.customer or shipment.customer.user != request.user):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        return HttpResponseForbidden("You don't have permission to access this shipment")
+    
+    # Check if invoice already exists
+    if shipment.invoice:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'An invoice already exists. Please delete it first.'}, status=400)
+        messages.error(request, "An invoice already exists. Please delete it first.")
+        return redirect('parcel_details', parcel_id=shipment_id)
+    
+    if request.method == 'POST':
+        form = InvoiceGenerationForm(shipment, request.POST)
+        formset = ProductLineItemFormSet(request.POST)
+        
+        if form.is_valid() and formset.is_valid():
+            try:
+                # Extract form data
+                shipper_name = form.cleaned_data['shipper_name']
+                shipper_address = form.cleaned_data['shipper_address']
+                consignee_name = form.cleaned_data['consignee_name']
+                consignee_address = form.cleaned_data['consignee_address']
+                
+                # Extract line items
+                line_items = []
+                for item_form in formset:
+                    if item_form.cleaned_data and not item_form.cleaned_data.get('DELETE', False):
+                        line_items.append({
+                            'description': item_form.cleaned_data['description'],
+                            'weight': item_form.cleaned_data['weight'],
+                            'quantity': item_form.cleaned_data['quantity'],
+                            'unit_value': item_form.cleaned_data['unit_value'],
+                        })
+                
+                # Generate PDF
+                pdf_buffer = generate_invoice_pdf(
+                    shipment, shipper_name, shipper_address,
+                    consignee_name, consignee_address, line_items
+                )
+                
+                # Save to shipment
+                filename = f"invoice_{shipment.awb_number}.pdf"
+                shipment.invoice.save(filename, ContentFile(pdf_buffer.getvalue()), save=True)
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Invoice generated successfully',
+                        'invoice_url': shipment.invoice.url
+                    })
+                
+                messages.success(request, "Invoice generated successfully")
+                return redirect('parcel_details', parcel_id=shipment_id)
+            except Exception as e:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'success': False, 'error': str(e)}, status=500)
+                messages.error(request, f"Error generating invoice: {str(e)}")
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                errors = {}
+                if form.errors:
+                    errors['form'] = form.errors
+                if formset.errors:
+                    errors['formset'] = formset.errors
+                return JsonResponse({'success': False, 'errors': errors}, status=400)
+    else:
+        form = InvoiceGenerationForm(shipment)
+        formset = ProductLineItemFormSet()
+    
+    # For AJAX GET requests, return form HTML
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        html = render_to_string('exportimport/invoice_generate_modal.html', {
+            'form': form,
+            'formset': formset,
+            'shipment': shipment
+        }, request=request)
+        return JsonResponse({'success': True, 'html': html})
+    
+    return render(request, 'exportimport/invoice_generate.html', {
+        'form': form,
+        'formset': formset,
+        'shipment': shipment
+    })
+
 
 # ==================== BAG MANAGEMENT (Staff Only) ====================
 @login_required(login_url='login')
@@ -1042,21 +1253,16 @@ def bag_detail_view(request, bag_id):
         manifest = manifests.first()
         manifest_info = manifest
     
-    # Calculate max weight (default 100 KG if not set)
-    max_weight = getattr(bag, 'max_weight', 100)
-    
     context = {
         'user': request.user,
         'bag': bag,
         'shipments': shipments,
         'item_count': bag.get_item_count(),
         'total_weight': total_weight,
-        'max_weight': max_weight,
         'manifest': manifest_info,
         'can_seal': bag.status == 'OPEN' and bag.get_item_count() > 0,
         'can_unseal': bag.status == 'SEALED',
         'can_add_parcels': bag.status == 'OPEN',
-        'has_invoice': bag.status == 'SEALED' and hasattr(bag, 'air_invoice') and bag.air_invoice,
     }
     
     return render(request, 'exportimport/bag_detail.html', context)
@@ -1239,17 +1445,12 @@ def seal_bag_view(request, bag_id):
     try:
         bag = get_object_or_404(Bag, id=bag_id)
         
-        # Seal bag (this handles all validations and generates air invoice)
+        # Seal bag (this handles all validations)
         bag.seal_bag(request.user)
-        
-        invoice_url = None
-        if hasattr(bag, 'air_invoice') and bag.air_invoice:
-            invoice_url = f'/bags/{bag_id}/invoice/'
         
         return JsonResponse({
             'success': True,
-            'message': 'Bag sealed successfully. Air invoice generated.',
-            'invoice_url': invoice_url
+            'message': 'Bag sealed successfully.'
         })
     
     except ValidationError as e:
@@ -1400,55 +1601,6 @@ def update_bag_status(request, bag_id):
         }, status=500)
 
 
-@login_required(login_url='login')
-@require_http_methods(["GET"])
-def download_air_invoice(request, bag_id):
-    """Download air invoice PDF - Staff only"""
-    if not request.user.is_staff:
-        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
-    
-    try:
-        from django.http import FileResponse
-        
-        bag = get_object_or_404(Bag, id=bag_id)
-        
-        # Validate bag is sealed
-        if bag.status not in ['SEALED', 'IN_MANIFEST', 'DISPATCHED']:
-            return JsonResponse({
-                'success': False,
-                'error': 'Air invoice is only available for sealed bags'
-            }, status=400)
-        
-        # Check if air invoice exists
-        if not hasattr(bag, 'air_invoice') or not bag.air_invoice:
-            return JsonResponse({
-                'success': False,
-                'error': 'Air invoice not found for this bag'
-            }, status=404)
-        
-        air_invoice = bag.air_invoice
-        
-        # Check if PDF file exists
-        if not air_invoice.pdf_file:
-            return JsonResponse({
-                'success': False,
-                'error': 'PDF file not found'
-            }, status=404)
-        
-        # Generate filename
-        filename = f"AIR_INVOICE_{bag.bag_number}_{bag.sealed_at.strftime('%Y%m%d')}.pdf"
-        
-        # Return PDF file response with Content-Disposition header
-        response = FileResponse(air_invoice.pdf_file.open('rb'), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        
-        return response
-    
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
 
 
 def print_bag_label(request, bag_id):

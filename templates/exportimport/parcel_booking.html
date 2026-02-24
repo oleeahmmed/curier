@@ -236,7 +236,7 @@
             </div>
             
             <div class="flex gap-3 pt-4">
-                <button type="button" onclick="hideModal('createModal')" class="flex-1 btn btn-secondary">
+                <button type="button" onclick="{% if return_url %}window.location.href='{{ return_url }}'{% else %}hideModal('createModal'){% endif %}" class="flex-1 btn btn-secondary">
                     Cancel
                 </button>
                 <button type="submit" class="flex-1 btn btn-primary">
@@ -296,6 +296,13 @@
 let currentParcelId = null;
 let deleteParcelId = null;
 
+// Auto-open edit modal if edit parameter is present
+{% if edit_parcel_id %}
+window.addEventListener('DOMContentLoaded', () => {
+    editParcel({{ edit_parcel_id }});
+});
+{% endif %}
+
 // COD Toggle
 document.getElementById('isCod').onchange = (e) => {
     document.getElementById('codAmountDiv').classList.toggle('hidden', !e.target.checked);
@@ -343,7 +350,13 @@ document.getElementById('parcelForm').onsubmit = async (e) => {
         if (result.success) {
             toast(result.message);
             hideModal('createModal');
+            
+            // Redirect to return_url if present, otherwise reload
+            {% if return_url %}
+            setTimeout(() => window.location.href = '{{ return_url }}', 1000);
+            {% else %}
             setTimeout(() => location.reload(), 1000);
+            {% endif %}
         } else {
             toast('Error: ' + result.error);
         }

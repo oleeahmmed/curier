@@ -473,9 +473,9 @@
             </a>
             <a href="{% url 'parcel_booking' %}" class="nav-item {% if request.resolver_match.url_name == 'parcel_booking' %}active{% endif %}">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
-                Add Parcel
+                My Parcels
             </a>
             <a href="/admin/" class="nav-item">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -657,11 +657,10 @@
             </a>
             <a href="{% url 'parcel_booking' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'parcel_booking' %}active{% endif %}">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
-                <span>Add Parcel</span>
+                <span>Parcels</span>
             </a>
-            {% else %}
             <!-- Customer Navigation: My Parcels, Track, Add Parcel, More -->
             <a href="{% url 'parcel_booking' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'parcel_booking' %}active{% endif %}">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

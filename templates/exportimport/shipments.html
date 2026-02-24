@@ -123,7 +123,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for ship in shipments %}
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="loadShipmentDetails({{ ship.id }})">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="loadShipmentDetails({{ ship.id }})">>
                         <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ ship.awb_number|default:"—" }}</td>
                         <td class="px-4 py-3">
                             <span class="status-badge status-{{ ship.current_status|lower }} text-xs">
@@ -142,9 +142,16 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3">
-                            <button onclick="event.stopPropagation(); loadShipmentDetails({{ ship.id }})" class="text-xs text-black hover:text-gray-600 font-medium">
-                                View
-                            </button>
+                            <div class="flex gap-2">
+                                <a href="{% url 'parcel_details' ship.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">
+                                    View
+                                </a>
+                                {% if user.is_staff or ship.current_status == 'PENDING' %}
+                                <button onclick="event.stopPropagation(); editShipment({{ ship.id }})" class="text-xs text-black hover:text-gray-600 font-medium">
+                                    Edit
+                                </button>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -222,6 +229,14 @@
                         <p class="text-xs text-purple-600 font-semibold mb-1">✈️ Manifest Information</p>
                         <p class="text-sm font-medium text-gray-900" id="modalManifestNumber"></p>
                         <p class="text-xs text-gray-600" id="modalManifestFlight"></p>
+                    </div>
+                </div>
+                
+                <!-- Invoice Section -->
+                <div id="invoiceSection" class="mt-3">
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <p class="text-xs text-gray-600 font-semibold mb-2">📄 Invoice</p>
+                        <div id="invoiceContent"></div>
                     </div>
                 </div>
             </div>
@@ -341,6 +356,11 @@ let pendingStatus = null;
 let pendingLabel = null;
 let canvas, ctx, isDrawing = false;
 
+// Edit shipment - redirect to parcel booking with edit parameter
+function editShipment(shipId) {
+    window.location.href = `/parcels/?edit=${shipId}&return_url={{ request.path }}`;
+}
+
 // Load shipment details by ID
 async function loadShipmentDetails(shipId) {
     showLoading();
@@ -410,6 +430,9 @@ function displayShipmentDetails(data) {
     } else {
         bagManifestInfo.classList.add('hidden');
     }
+    
+    // Display invoice section
+    displayInvoiceSection(s);
 
     // Role-based buttons
     const btns = getRoleButtons();
@@ -449,6 +472,101 @@ function displayShipmentDetails(data) {
             </div>
         </div>
     `).join('') : '<p class="text-sm text-gray-500">No tracking history available</p>';
+}
+
+// Display invoice section with permission checks
+function displayInvoiceSection(shipment) {
+    const invoiceContent = document.getElementById('invoiceContent');
+    const isStaff = '{{ request.user.is_staff }}' === 'True';
+    const hasInvoice = shipment.invoice !== null;
+    const hasAwb = shipment.awb_number && shipment.awb_number !== '—';
+    const isPending = shipment.current_status === 'PENDING';
+    const isBookedOrLater = ['BOOKED', 'RECEIVED_AT_BD', 'HANDED_TO_AIRLINE', 'ARRIVED_AT_HK', 'DELIVERED', 'DELIVERED_IN_HK'].includes(shipment.current_status);
+    
+    let html = '';
+    
+    if (hasInvoice) {
+        // Invoice exists - show download, preview, and delete buttons
+        html += `
+            <div class="space-y-2">
+                <p class="text-sm text-gray-900 mb-2">
+                    <span class="font-medium">File:</span> ${shipment.invoice.filename}
+                </p>
+                <div class="flex flex-wrap gap-2">
+        `;
+        
+        // Download button - staff always, customer only if BOOKED or later
+        if (isStaff || isBookedOrLater) {
+            html += `
+                <a href="/invoice/${shipment.id}/download/" target="_blank" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download
+                </a>
+            `;
+        }
+        
+        // Preview button - staff always, customer only if BOOKED or later
+        if (isStaff || isBookedOrLater) {
+            html += `
+                <a href="${shipment.invoice.url}" target="_blank" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                    Preview
+                </a>
+            `;
+        }
+        
+        // Delete button - staff always, customer only if PENDING
+        if (isStaff || isPending) {
+            html += `
+                <a href="/invoice/${shipment.id}/delete/" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Delete
+                </a>
+            `;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+    } else {
+        // No invoice - show upload and create options
+        html += '<p class="text-sm text-gray-500 mb-2">No invoice attached</p>';
+        html += '<div class="flex flex-wrap gap-2">';
+        
+        // Upload button - always visible when no invoice
+        html += `
+            <a href="/invoice/${shipment.id}/upload/" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                Upload Invoice
+            </a>
+        `;
+        
+        // Create Invoice button - staff only, requires AWB
+        if (isStaff && hasAwb) {
+            html += `
+                <a href="/invoice/${shipment.id}/generate/" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Create Invoice
+                </a>
+            `;
+        }
+        
+        html += '</div>';
+    }
+    
+    invoiceContent.innerHTML = html;
 }
 
 // Get role-based buttons

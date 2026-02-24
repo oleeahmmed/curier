@@ -1,0 +1,276 @@
+{% extends 'exportimport/base.html' %}
+
+{% block title %}Upload Invoice - {{ shipment.awb_number }}{% endblock %}
+
+{% block page_title %}Upload Invoice{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- Shipment Info Card -->
+    <div class="card mb-6">
+        <div class="card-header">
+            <h2 class="text-lg font-semibold text-gray-900">Shipment Information</h2>
+        </div>
+        <div class="card-body">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">AWB Number</p>
+                    <p class="text-xl font-bold text-gray-900">{{ shipment.awb_number }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Status</p>
+                    <span class="status-badge status-{{ shipment.current_status|lower }}">
+                        {{ shipment.get_current_status_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500">From</p>
+                        <p class="text-sm font-medium text-gray-900">{{ shipment.shipper_name }}</p>
+                        <p class="text-xs text-gray-600">{{ shipment.shipper_country }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">To</p>
+                        <p class="text-sm font-medium text-gray-900">{{ shipment.recipient_name }}</p>
+                        <p class="text-xs text-gray-600">{{ shipment.recipient_country }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Form Card -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-lg font-semibold text-gray-900">Upload Commercial Invoice</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+                
+                <!-- File Upload Field -->
+                <div class="form-group">
+                    <label for="id_invoice" class="form-label">
+                        Invoice Document <span class="text-red-500">*</span>
+                    </label>
+                    
+                    <!-- Custom File Input -->
+                    <div class="relative">
+                        <input 
+                            type="file" 
+                            name="invoice" 
+                            id="id_invoice" 
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            class="form-input"
+                            required
+                        >
+                    </div>
+                    
+                    <!-- Field Errors -->
+                    {% if form.invoice.errors %}
+                        <div class="mt-2">
+                            {% for error in form.invoice.errors %}
+                                <p class="text-sm text-red-600 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Help Text -->
+                    <div class="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p class="text-xs font-medium text-gray-700 mb-2">File Requirements:</p>
+                        <ul class="text-xs text-gray-600 space-y-1">
+                            <li class="flex items-start">
+                                <svg class="w-4 h-4 mr-1 mt-0.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span>Accepted formats: PDF, JPG, JPEG, PNG</span>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-4 h-4 mr-1 mt-0.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span>Maximum file size: 10MB</span>
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="w-4 h-4 mr-1 mt-0.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span>Ensure the document is clear and readable</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- File Preview -->
+                    <div id="filePreview" class="mt-3 hidden">
+                        <div class="flex items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <svg class="w-8 h-8 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <div class="flex-1 min-w-0">
+                                <p id="fileName" class="text-sm font-medium text-gray-900 truncate"></p>
+                                <p id="fileSize" class="text-xs text-gray-600"></p>
+                            </div>
+                            <button type="button" onclick="clearFile()" class="ml-3 text-gray-400 hover:text-gray-600">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Errors -->
+                {% if form.non_field_errors %}
+                    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        {% for error in form.non_field_errors %}
+                            <p class="text-sm text-red-600">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 mt-6">
+                    <button type="submit" class="btn btn-primary flex-1 sm:flex-none">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                        Upload Invoice
+                    </button>
+                    <a href="{% url 'parcel_details' shipment.id %}" class="btn btn-secondary flex-1 sm:flex-none text-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex">
+            <svg class="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <div class="text-sm text-blue-800">
+                <p class="font-medium mb-1">Why upload a commercial invoice?</p>
+                <p class="text-blue-700">Commercial invoices are required for international shipments to clear customs. They provide details about the goods being shipped, their value, and other important information.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // File input change handler
+    document.getElementById('id_invoice').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const preview = document.getElementById('filePreview');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        
+        if (file) {
+            // Validate file size (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                toast('File size must not exceed 10MB', 3000);
+                clearFile();
+                return;
+            }
+            
+            // Validate file type
+            const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+            if (!validTypes.includes(file.type)) {
+                toast('Only PDF and image files are allowed', 3000);
+                clearFile();
+                return;
+            }
+            
+            // Show preview
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            preview.classList.remove('hidden');
+        } else {
+            preview.classList.add('hidden');
+        }
+    });
+    
+    // Clear file selection
+    function clearFile() {
+        document.getElementById('id_invoice').value = '';
+        document.getElementById('filePreview').classList.add('hidden');
+    }
+    
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    // Form submission handler
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        const fileInput = document.getElementById('id_invoice');
+        
+        if (!fileInput.files || fileInput.files.length === 0) {
+            e.preventDefault();
+            toast('Please select a file to upload', 3000);
+            return false;
+        }
+        
+        // Show loading
+        showLoading();
+    });
+    
+    // Drag and drop support
+    const fileInput = document.getElementById('id_invoice');
+    const form = document.getElementById('uploadForm');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        form.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        form.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        form.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        form.classList.add('border-blue-500', 'bg-blue-50');
+    }
+    
+    function unhighlight(e) {
+        form.classList.remove('border-blue-500', 'bg-blue-50');
+    }
+    
+    form.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            fileInput.files = files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    }
+</script>
+{% endblock %}

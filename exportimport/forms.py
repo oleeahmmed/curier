@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Customer
+from .models import Customer, Shipment
 
 
 class CustomerRegistrationForm(forms.ModelForm):
@@ -80,3 +80,90 @@ class PasswordChangeForm(forms.Form):
             raise ValidationError('New passwords do not match')
         
         return cleaned_data
+
+
+# Commercial Invoice Forms
+
+class InvoiceUploadForm(forms.ModelForm):
+    """
+    Form for uploading invoice files to a shipment.
+    Validates file extension (PDF, JPG, JPEG, PNG) and size (max 10MB).
+    """
+    class Meta:
+        model = Shipment
+        fields = ['invoice']
+    
+    def clean_invoice(self):
+        invoice = self.cleaned_data.get('invoice')
+        
+        if invoice:
+            # Validate file extension
+            ext = invoice.name.split('.')[-1].lower()
+            if ext not in ['pdf', 'jpg', 'jpeg', 'png']:
+                raise ValidationError('Only PDF and image files (PDF, JPG, JPEG, PNG) are allowed')
+            
+            # Validate file size (10MB max)
+            if invoice.size > 10 * 1024 * 1024:
+                raise ValidationError('File size must not exceed 10MB')
+        
+        return invoice
+
+
+class InvoiceGenerationForm(forms.Form):
+    """
+    Form for generating invoices with product line items.
+    Pre-populates shipper/consignee information from shipment but allows editing.
+    AWB number is read-only.
+    """
+    # Shipper information (editable, pre-populated from shipment)
+    shipper_name = forms.CharField(max_length=200, required=True)
+    shipper_address = forms.CharField(widget=forms.Textarea, required=True)
+    
+    # Consignee information (editable, pre-populated from shipment)
+    consignee_name = forms.CharField(max_length=200, required=True)
+    consignee_address = forms.CharField(widget=forms.Textarea, required=True)
+    
+    # AWB (read-only, populated from shipment)
+    awb_number = forms.CharField(max_length=50, disabled=True, required=False)
+    
+    def __init__(self, shipment, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Pre-populate from shipment
+        self.fields['shipper_name'].initial = shipment.shipper_name
+        self.fields['shipper_address'].initial = shipment.shipper_address
+        self.fields['consignee_name'].initial = shipment.recipient_name
+        self.fields['consignee_address'].initial = shipment.recipient_address
+        self.fields['awb_number'].initial = shipment.awb_number
+
+
+class ProductLineItemForm(forms.Form):
+    """
+    Form for individual product line items in invoice generation.
+    All numeric fields have min_value constraints to ensure positive values.
+    """
+    description = forms.CharField(max_length=500, required=True)
+    weight = forms.DecimalField(
+        max_digits=6, 
+        decimal_places=2, 
+        min_value=0.01, 
+        required=True,
+        help_text="Weight in kg"
+    )
+    quantity = forms.IntegerField(min_value=1, required=True)
+    unit_value = forms.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        min_value=0.01, 
+        required=True,
+        help_text="Unit value in declared currency"
+    )
+
+
+# Dynamic formset for multiple line items
+ProductLineItemFormSet = forms.formset_factory(
+    ProductLineItemForm,
+    extra=1,
+    min_num=1,
+    validate_min=True
+)

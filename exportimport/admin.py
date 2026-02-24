@@ -6,12 +6,13 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django import forms
 from django.db import models
+from django.contrib import messages
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import display
 
 from .models import (
     Customer, Shipment, Bag, Manifest, TrackingEvent,
-    DeliveryProof, ShipmentException, Location, StaffProfile, AirInvoice
+    DeliveryProof, ShipmentException, Location, StaffProfile
 )
 
 
@@ -438,52 +439,6 @@ class BagAdmin(ModelAdmin):
 
 
 
-# ==================== AIR INVOICE ADMIN ====================
-
-@admin.register(AirInvoice)
-class AirInvoiceAdmin(ModelAdmin):
-    list_display = ['invoice_number', 'bag', 'page_count', 'generated_at', 'generated_by', 'download_link']
-    list_filter = ['generated_at']
-    search_fields = ['invoice_number', 'bag__bag_number']
-    readonly_fields = ['invoice_number', 'bag', 'page_count', 'generated_at', 'generated_by', 'pdf_file', 'download_link']
-    date_hierarchy = 'generated_at'
-    
-    @display(description=_("Download PDF"), label=True)
-    def download_link(self, obj):
-        """Display download link for the PDF"""
-        if obj.pdf_file:
-            return format_html(
-                '<a class="button" style="padding: 5px 10px; background-color: #417690; color: white; text-decoration: none; border-radius: 4px;" href="{}" target="_blank">Download PDF</a>',
-                obj.pdf_file.url
-            )
-        return "No PDF available"
-    
-    fieldsets = (
-        (_('Invoice Information'), {
-            'fields': (
-                ('invoice_number', 'bag'),
-                ('page_count', 'pdf_file'),
-            ),
-            'classes': ['tab'],
-        }),
-        (_('Generation Details'), {
-            'fields': (
-                ('generated_by', 'generated_at'),
-                ('download_link',),
-            ),
-            'classes': ['tab'],
-        }),
-    )
-    
-    def has_add_permission(self, request):
-        """Prevent manual creation of air invoices"""
-        return False
-    
-    def has_delete_permission(self, request, obj=None):
-        """Prevent manual deletion of air invoices"""
-        return False
-
-
 # ==================== MANIFEST ADMIN ====================
 
 @admin.register(Manifest)
@@ -491,9 +446,10 @@ class ManifestAdmin(ModelAdmin):
     list_display = ['manifest_number', 'mawb_number', 'flight_number', 'departure_date', 'status', 'total_bags', 'total_parcels', 'total_weight']
     list_filter = ['status', 'departure_date']
     search_fields = ['manifest_number', 'mawb_number', 'flight_number', 'airline_reference']
-    readonly_fields = ['manifest_number', 'created_at', 'finalized_at', 'created_by', 'finalized_by']
+    readonly_fields = ['manifest_number', 'created_at', 'created_by']
     date_hierarchy = 'departure_date'
-    filter_horizontal = ['bags']
+    filter_horizontal = ['bags', 'shipments']
+    actions = ['change_to_draft', 'change_to_finalized', 'change_to_departed', 'change_to_arrived']
     
     fieldsets = (
         (_('Manifest Information'), {
@@ -502,6 +458,7 @@ class ManifestAdmin(ModelAdmin):
                 ('flight_number', 'departure_date', 'departure_time'),
                 ('airline_reference',),
                 ('bags',),
+                ('shipments',),
                 ('total_bags', 'total_parcels', 'total_weight'),
             ),
             'classes': ['tab'],
@@ -519,6 +476,73 @@ class ManifestAdmin(ModelAdmin):
         if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+    
+    @admin.action(description='Change status to DRAFT')
+    def change_to_draft(self, request, queryset):
+        """Change selected manifests to DRAFT status"""
+        count = 0
+        for manifest in queryset:
+            manifest.status = 'DRAFT'
+            manifest.finalized_by = None
+            manifest.finalized_at = None
+            manifest.save()
+            count += 1
+        
+        self.message_user(
+            request,
+            f'{count} manifest(s) changed to DRAFT status.',
+            messages.SUCCESS
+        )
+    
+    @admin.action(description='Change status to FINALIZED')
+    def change_to_finalized(self, request, queryset):
+        """Change selected manifests to FINALIZED status"""
+        count = 0
+        for manifest in queryset:
+            manifest.status = 'FINALIZED'
+            if not manifest.finalized_by:
+                manifest.finalized_by = request.user
+            if not manifest.finalized_at:
+                from django.utils import timezone
+                manifest.finalized_at = timezone.now()
+            manifest.save()
+            count += 1
+        
+        self.message_user(
+            request,
+            f'{count} manifest(s) changed to FINALIZED status.',
+            messages.SUCCESS
+        )
+    
+    @admin.action(description='Change status to DEPARTED')
+    def change_to_departed(self, request, queryset):
+        """Change selected manifests to DEPARTED status"""
+        count = 0
+        for manifest in queryset:
+            manifest.status = 'DEPARTED'
+            manifest.save()
+            count += 1
+        
+        self.message_user(
+            request,
+            f'{count} manifest(s) changed to DEPARTED status.',
+            messages.SUCCESS
+        )
+    
+    @admin.action(description='Change status to ARRIVED')
+    def change_to_arrived(self, request, queryset):
+        """Change selected manifests to ARRIVED status"""
+        count = 0
+        for manifest in queryset:
+            manifest.status = 'ARRIVED'
+            manifest.save()
+            count += 1
+        
+        self.message_user(
+            request,
+            f'{count} manifest(s) changed to ARRIVED status.',
+            messages.SUCCESS
+        )
 
 
 # ==================== TRACKING EVENT ADMIN ====================

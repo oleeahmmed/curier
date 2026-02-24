@@ -26,7 +26,7 @@
                 </button>
                 {% endif %}
                 {% if can_edit %}
-                <a href="{% url 'parcel_booking' %}?edit={{ shipment.id }}" class="btn btn-secondary">
+                <a href="{% url 'parcel_booking' %}?edit={{ shipment.id }}&return_url={{ request.path }}" class="btn btn-secondary">
                     Edit
                 </a>
                 {% endif %}
@@ -152,6 +152,84 @@
     </div>
 </div>
 
+<!-- Invoice Section -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h2 class="text-base font-semibold text-gray-900">Invoice</h2>
+    </div>
+    <div class="card-body">
+        {% if shipment.invoice %}
+            <!-- Invoice exists -->
+            <div class="space-y-3">
+                <div class="flex items-center gap-2 text-sm text-gray-700">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span class="font-medium">{{ shipment.invoice.name|slice:"-50:" }}</span>
+                </div>
+                
+                <div class="flex flex-wrap gap-2">
+                    <!-- Download button - staff always, customer only if BOOKED or later -->
+                    {% if request.user.is_staff or shipment.current_status != 'PENDING' %}
+                    <a href="{% url 'invoice_download' shipment.id %}" target="_blank" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download
+                    </a>
+                    {% endif %}
+                    
+                    <!-- Preview button - staff always, customer only if BOOKED or later -->
+                    {% if request.user.is_staff or shipment.current_status != 'PENDING' %}
+                    <a href="{{ shipment.invoice.url }}" target="_blank" class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        Preview
+                    </a>
+                    {% endif %}
+                    
+                    <!-- Delete button - staff always, customer only if PENDING -->
+                    {% if request.user.is_staff or shipment.current_status == 'PENDING' %}
+                    <a href="{% url 'invoice_delete' shipment.id %}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Delete
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <!-- No invoice -->
+            <div class="space-y-3">
+                <p class="text-sm text-gray-500">No invoice attached</p>
+                
+                <div class="flex flex-wrap gap-2">
+                    <!-- Upload button - always visible when no invoice -->
+                    <a href="{% url 'invoice_upload' shipment.id %}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        Upload Invoice
+                    </a>
+                    
+                    <!-- Create Invoice button - staff only, requires AWB -->
+                    {% if request.user.is_staff and shipment.awb_number %}
+                    <button onclick="openInvoiceGenerateModal({{ shipment.id }})" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Create Invoice
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Tracking History -->
 {% if tracking_events %}
 <div class="card">
@@ -254,5 +332,48 @@ function bookParcel(parcelId) {
         console.error('Error:', error);
     });
 }
+
+// Invoice Generate Modal
+function openInvoiceGenerateModal(shipmentId) {
+    fetch(`/invoice/${shipmentId}/generate/`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('invoiceGenerateModalBody').innerHTML = data.html;
+            showModal('invoiceGenerateModal');
+        } else {
+            showToast(data.error || 'Error loading form', 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Error loading form', 'error');
+        console.error('Error:', error);
+    });
+}
+
+function closeModal(modalId) {
+    hideModal(modalId);
+}
 </script>
+
+<!-- Invoice Generate Modal -->
+<div id="invoiceGenerateModal" class="modal">
+    <div class="modal-content max-w-3xl">
+        <div class="flex items-center justify-between p-5 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Generate Invoice - AWB: {{ shipment.awb_number }}</h3>
+            <button onclick="closeModal('invoiceGenerateModal')" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="invoiceGenerateModalBody" class="p-5">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -90,19 +90,6 @@
                 <p class="text-xs text-gray-500 mb-1">Total Weight</p>
                 <p class="text-2xl font-bold text-gray-900" id="totalWeight">{{ total_weight|floatformat:2 }} KG</p>
             </div>
-            <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 mb-1">Max Weight</p>
-                <p class="text-2xl font-bold text-gray-900">{{ max_weight }} KG</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-4">
-                <p class="text-xs text-gray-500 mb-1">Weight Status</p>
-                <div class="flex items-center gap-2">
-                    <div class="flex-1 bg-gray-200 rounded-full h-2">
-                        <div id="weightBar" class="weight-indicator h-2 rounded-full" style="width: {{ bag.weight|floatformat:0 }}%"></div>
-                    </div>
-                    <span id="weightPercent" class="text-xs font-semibold text-gray-600">{{ bag.weight|floatformat:0 }}%</span>
-                </div>
-            </div>
         </div>
         
         {% if bag.unsealed_at %}
@@ -300,15 +287,6 @@
         </svg>
         Delete Bag
     </button>
-    {% endif %}
-    
-    {% if has_invoice %}
-    <a href="{% url 'download_air_invoice' bag.id %}" target="_blank" class="px-4 py-2 bg-blue-600 text-white border border-black hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-        </svg>
-        Download Invoice
-    </a>
     {% endif %}
     
     <a href="{% url 'print_bag_label' bag.id %}" target="_blank" class="px-4 py-2 bg-gray-600 text-white border border-black hover:bg-gray-700 rounded-lg font-medium transition-colors flex items-center gap-2">
@@ -527,7 +505,6 @@
 {% block extra_scripts %}
 <script>
 const bagId = {{ bag.id }};
-const maxWeight = {{ max_weight }};
 let currentWeight = {{ total_weight|floatformat:2 }};
 let itemCount = {{ item_count }};
 
@@ -792,22 +769,6 @@ async function addParcelByAwb(awb) {
 function updateBagStats() {
     document.getElementById('itemCount').textContent = itemCount;
     document.getElementById('totalWeight').textContent = currentWeight.toFixed(2) + ' KG';
-    
-    const percentage = (currentWeight / maxWeight) * 100;
-    document.getElementById('weightPercent').textContent = percentage.toFixed(0) + '%';
-    
-    const weightBar = document.getElementById('weightBar');
-    weightBar.style.width = Math.min(percentage, 100) + '%';
-    
-    // Update color based on percentage
-    weightBar.className = 'weight-indicator h-2 rounded-full ';
-    if (percentage >= 100) {
-        weightBar.classList.add('weight-exceeded');
-    } else if (percentage >= 90) {
-        weightBar.classList.add('weight-warning');
-    } else {
-        weightBar.classList.add('weight-normal');
-    }
 }
 
 // Add shipment to table

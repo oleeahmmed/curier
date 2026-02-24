@@ -38,6 +38,12 @@ urlpatterns = [
     # Invoice View
     path('invoice/<int:shipment_id>/', views.invoice_view, name='invoice_view'),
     
+    # Invoice Management
+    path('invoice/<int:shipment_id>/upload/', views.invoice_upload_view, name='invoice_upload'),
+    path('invoice/<int:shipment_id>/generate/', views.invoice_generate_view, name='invoice_generate'),
+    path('invoice/<int:shipment_id>/delete/', views.invoice_delete_view, name='invoice_delete'),
+    path('invoice/<int:shipment_id>/download/', views.invoice_download_view, name='invoice_download'),
+    
     # Bag Management (Staff)
     path('bags/', views.bags_view, name='bags'),
     path('bags/create/', views.create_bag, name='create_bag'),
@@ -49,7 +55,6 @@ urlpatterns = [
     path('bags/<int:bag_id>/unseal/', views.unseal_bag_view, name='unseal_bag'),
     path('bags/<int:bag_id>/delete/', views.delete_bag_view, name='delete_bag'),
     path('bags/<int:bag_id>/status/', views.update_bag_status, name='update_bag_status'),
-    path('bags/<int:bag_id>/invoice/', views.download_air_invoice, name='download_air_invoice'),
     path('bags/<int:bag_id>/label/', views.print_bag_label, name='print_bag_label'),
     path('bags/clear-context/', views.clear_bag_context, name='clear_bag_context'),
     
@@ -66,4 +71,10 @@ urlpatterns = [
     path('manifests/<int:pk>/export/excel/', manifest_views.ManifestExportExcelView.as_view(), name='manifest_export_excel'),
     path('manifests/<int:manifest_pk>/shipments/<int:shipment_pk>/edit/', manifest_views.ShipmentEditView.as_view(), name='shipment_edit'),
     path('manifests/<int:manifest_pk>/shipments/<int:shipment_pk>/remove/', manifest_views.ShipmentRemoveView.as_view(), name='shipment_remove'),
+    
+    # Manifest individual shipment management
+    path('manifests/<int:pk>/add-shipment/', manifest_views.ManifestAddShipmentView.as_view(), name='manifest_add_shipment'),
+    path('manifests/<int:pk>/remove-individual-shipment/<int:shipment_pk>/', manifest_views.ManifestRemoveIndividualShipmentView.as_view(), name='manifest_remove_individual_shipment'),
+    path('manifests/<int:pk>/available-shipments/', manifest_views.ManifestAvailableShipmentsView.as_view(), name='manifest_available_shipments'),
+    path('manifests/available-shipments-for-new/', manifest_views.AvailableShipmentsForNewManifestView.as_view(), name='available_shipments_for_new_manifest'),
 ]

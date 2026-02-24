@@ -12,6 +12,16 @@ import base64
 import re
 
 
+def invoice_upload_path(instance, filename):
+    """
+    Generate upload path for invoice files.
+    Format: invoices/YYYY/MM/invoice_AWB.ext
+    """
+    ext = filename.split('.')[-1].lower()
+    new_filename = f"invoice_{instance.awb_number}.{ext}"
+    return f"invoices/{timezone.now().strftime('%Y/%m')}/{new_filename}"
+
+
 class Customer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
@@ -128,6 +138,12 @@ class Shipment(models.Model):
     
     hk_reference = models.CharField(max_length=100, blank=True, null=True, help_text="HK warehouse reference")
     mawb_number = models.CharField(max_length=50, blank=True, null=True, help_text="Master AWB")
+    invoice = models.FileField(
+        upload_to=invoice_upload_path,
+        blank=True,
+        null=True,
+        help_text="Commercial invoice document (PDF or image)"
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -299,10 +315,6 @@ class Bag(models.Model):
         self.sealed_by = user
         self.save()
         
-        # Generate air invoice PDF
-        from .services import generate_air_invoice_for_bag
-        generate_air_invoice_for_bag(self, user)
-        
         for shipment in self.shipment.all():
             TrackingEvent.objects.create(
                 shipment=shipment,
@@ -332,11 +344,6 @@ class Bag(models.Model):
         self.unseal_reason = reason
         self.save()
         
-        if hasattr(self, 'air_invoice') and self.air_invoice:
-            if self.air_invoice.pdf_file:
-                self.air_invoice.pdf_file.delete(save=False)
-            self.air_invoice.delete()
-        
         for shipment in self.shipment.all():
             TrackingEvent.objects.create(
                 shipment=shipment,
@@ -360,22 +367,17 @@ class Bag(models.Model):
                 f"Parcel {shipment.awb_number} is already in {existing_bag.bag_number}"
             )
 
-        new_weight = self.weight + shipment.weight_estimated
-        weight_warning = None
-        if hasattr(self, 'max_weight') and self.max_weight and new_weight > self.max_weight:
-            weight_warning = (
-                f"Adding this parcel will exceed bag weight limit "
-                f"({self.weight} + {shipment.weight_estimated} > {self.max_weight} KG). Continue?"
-            )
-
+        # Add shipment to bag
         self.shipment.add(shipment)
 
+        # Update shipment status
         shipment.current_status = 'BAGGED_FOR_EXPORT'
         shipment.save()
 
-        self.weight = new_weight
-        self.save()
+        # Update bag weight from actual parcels
+        self.update_weight()
 
+        # Create tracking event
         TrackingEvent.objects.create(
             shipment=shipment,
             status='BAGGED_FOR_EXPORT',
@@ -384,7 +386,7 @@ class Bag(models.Model):
             updated_by=user
         )
 
-        return weight_warning
+        return None  # No weight warning needed
 
     def remove_shipment(self, shipment, user):
         if self.status != 'OPEN':
@@ -428,22 +430,6 @@ class Bag(models.Model):
         ordering = ['-created_at']
 
 
-class AirInvoice(models.Model):
-    bag = models.OneToOneField(Bag, on_delete=models.CASCADE, related_name='air_invoice')
-    invoice_number = models.CharField(max_length=50, unique=True)
-    pdf_file = models.FileField(upload_to='air_invoices/')
-    page_count = models.IntegerField(help_text="Number of pages in PDF (equals number of parcels)")
-    
-    generated_at = models.DateTimeField(auto_now_add=True)
-    generated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    
-    def __str__(self):
-        return f"Invoice {self.invoice_number} for {self.bag.bag_number}"
-    
-    class Meta:
-        verbose_name = 'Air Invoice'
-        verbose_name_plural = 'Air Invoices'
-        ordering = ['-generated_at']
 
 
 class Manifest(models.Model):
@@ -461,7 +447,8 @@ class Manifest(models.Model):
     departure_date = models.DateField()
     departure_time = models.TimeField()
     
-    bags = models.ManyToManyField(Bag, related_name='manifests')
+    bags = models.ManyToManyField(Bag, related_name='manifests', blank=True)
+    shipments = models.ManyToManyField(Shipment, related_name='manifests', blank=True, help_text="Individual shipments not in bags")
     
     total_bags = models.IntegerField(default=0)
     total_parcels = models.IntegerField(default=0)
@@ -483,37 +470,144 @@ class Manifest(models.Model):
         super().save(*args, **kwargs)
     
     def calculate_totals(self):
+        """Calculate totals from both bags and individual shipments"""
         self.total_bags = self.bags.count()
         
+        # Count parcels from bags
         total_parcels = 0
         for bag in self.bags.all():
             total_parcels += bag.shipment.count()
+        
+        # Add individual shipments
+        total_parcels += self.shipments.count()
         self.total_parcels = total_parcels
         
-        weight_sum = self.bags.aggregate(total=Sum('weight'))['total']
-        self.total_weight = weight_sum if weight_sum is not None else 0
+        # Calculate weight from bags
+        weight_sum = self.bags.aggregate(total=Sum('weight'))['total'] or 0
+        
+        # Add weight from individual shipments
+        shipment_weight = self.shipments.aggregate(total=Sum('weight_estimated'))['total'] or 0
+        self.total_weight = weight_sum + shipment_weight
         
         self.save(update_fields=['total_bags', 'total_parcels', 'total_weight'])
     
+    def add_shipment(self, shipment, user):
+        """Add an individual shipment to manifest with validation"""
+        from django.core.exceptions import ValidationError
+        
+        # Check if shipment is already in a bag
+        if shipment.bags.exists():
+            bag_numbers = ', '.join([bag.bag_number for bag in shipment.bags.all()])
+            raise ValidationError(
+                f"Cannot add shipment {shipment.awb_number}. "
+                f"This shipment is already in bag(s): {bag_numbers}. "
+                f"Only shipments not in bags can be added individually."
+            )
+        
+        # Check if shipment is already delivered
+        if shipment.current_status in ['DELIVERED', 'RETURNED', 'CANCELLED']:
+            raise ValidationError(
+                f"Cannot add shipment {shipment.awb_number}. "
+                f"Shipment status is {shipment.get_current_status_display()}."
+            )
+        
+        # Check if shipment is already in another manifest
+        if shipment.manifests.exists():
+            manifest_numbers = ', '.join([m.manifest_number for m in shipment.manifests.all()])
+            raise ValidationError(
+                f"Cannot add shipment {shipment.awb_number}. "
+                f"This shipment is already in manifest(s): {manifest_numbers}."
+            )
+        
+        # Check shipment status is valid for manifest
+        valid_statuses = ['BOOKED', 'RECEIVED_AT_BD', 'BAGGED_FOR_EXPORT']
+        if shipment.current_status not in valid_statuses:
+            raise ValidationError(
+                f"Cannot add shipment {shipment.awb_number}. "
+                f"Status must be BOOKED, RECEIVED_AT_BD, or BAGGED_FOR_EXPORT "
+                f"(current: {shipment.get_current_status_display()})."
+            )
+        
+        # Add shipment to manifest
+        self.shipments.add(shipment)
+        
+        # Update shipment status
+        shipment.current_status = 'IN_EXPORT_MANIFEST'
+        shipment.save()
+        
+        # Create tracking event
+        TrackingEvent.objects.create(
+            shipment=shipment,
+            status='IN_EXPORT_MANIFEST',
+            description=f'Added to export manifest {self.manifest_number}',
+            location='Bangladesh Warehouse',
+            updated_by=user
+        )
+        
+        # Recalculate totals
+        self.calculate_totals()
+    
+    def remove_shipment(self, shipment, user):
+        """Remove an individual shipment from manifest"""
+        from django.core.exceptions import ValidationError
+        
+        if self.status != 'DRAFT':
+            raise ValidationError("Cannot remove shipments from finalized manifest")
+        
+        # Remove from manifest
+        self.shipments.remove(shipment)
+        
+        # Update shipment status back to RECEIVED_AT_BD
+        shipment.current_status = 'RECEIVED_AT_BD'
+        shipment.save()
+        
+        # Create tracking event
+        TrackingEvent.objects.create(
+            shipment=shipment,
+            status='RECEIVED_AT_BD',
+            description=f'Removed from manifest {self.manifest_number}',
+            location='Bangladesh Warehouse',
+            updated_by=user
+        )
+        
+        # Recalculate totals
+        self.calculate_totals()
+    
     def finalize_manifest(self, user):
+        """Finalize manifest - update status for bags and all shipments"""
         self.status = 'FINALIZED'
         self.finalized_by = user
         self.finalized_at = timezone.now()
         
+        # Update bags and their shipments
         for bag in self.bags.all():
             bag.status = 'IN_MANIFEST'
             bag.save()
             
-            for shipment in bag.shipments.all():
+            for shipment in bag.shipment.all():
                 shipment.current_status = 'IN_EXPORT_MANIFEST'
                 shipment.save()
                 
                 TrackingEvent.objects.create(
                     shipment=shipment,
                     status='IN_EXPORT_MANIFEST',
-                    description='Added to export manifest',
-                    location='Bangladesh Warehouse'
+                    description=f'Added to export manifest {self.manifest_number} (via bag {bag.bag_number})',
+                    location='Bangladesh Warehouse',
+                    updated_by=user
                 )
+        
+        # Update individual shipments
+        for shipment in self.shipments.all():
+            shipment.current_status = 'IN_EXPORT_MANIFEST'
+            shipment.save()
+            
+            TrackingEvent.objects.create(
+                shipment=shipment,
+                status='IN_EXPORT_MANIFEST',
+                description=f'Added to export manifest {self.manifest_number}',
+                location='Bangladesh Warehouse',
+                updated_by=user
+            )
         
         self.save()
 

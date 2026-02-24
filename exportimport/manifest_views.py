@@ -171,7 +171,8 @@ class ManifestDetailView(ManifestPermissionMixin, View):
                     'is_cod': shipment.is_cod,
                     'cod_amount': str(shipment.cod_amount) if shipment.cod_amount else None,
                     'current_status': shipment.current_status,
-                    'status': shipment.get_current_status_display()
+                    'status': shipment.get_current_status_display(),
+                    'in_bag': True
                 })
             
             # Get first shipment AWB for display (or None)
@@ -186,6 +187,30 @@ class ManifestDetailView(ManifestPermissionMixin, View):
                 'shipment': first_shipment_awb,
                 'shipment_count': shipments.count(),
                 'shipment_info': shipment_info_list,
+            })
+        
+        # Get individual shipments (not in bags)
+        individual_shipments = []
+        for shipment in manifest.shipments.all():
+            individual_shipments.append({
+                'id': shipment.id,
+                'awb_number': shipment.awb_number,
+                'recipient_name': shipment.recipient_name,
+                'recipient_phone': shipment.recipient_phone,
+                'recipient_address': shipment.recipient_address,
+                'shipper_name': shipment.shipper_name,
+                'weight': str(shipment.weight_estimated),
+                'length': str(shipment.length) if shipment.length else None,
+                'width': str(shipment.width) if shipment.width else None,
+                'height': str(shipment.height) if shipment.height else None,
+                'contents': shipment.contents,
+                'declared_value': str(shipment.declared_value),
+                'declared_currency': shipment.declared_currency,
+                'is_cod': shipment.is_cod,
+                'cod_amount': str(shipment.cod_amount) if shipment.cod_amount else None,
+                'current_status': shipment.current_status,
+                'status': shipment.get_current_status_display(),
+                'in_bag': False
             })
         
         data = {
@@ -208,6 +233,7 @@ class ManifestDetailView(ManifestPermissionMixin, View):
                 'finalized_by': manifest.finalized_by.get_full_name() if manifest.finalized_by else None,
                 'finalized_at': manifest.finalized_at.strftime('%Y-%m-%d %H:%M') if manifest.finalized_at else None,
                 'bags': bags_data,
+                'individual_shipments': individual_shipments,
             }
         }
         
@@ -222,7 +248,7 @@ class ManifestCreateView(ManifestPermissionMixin, View):
             data = json.loads(request.body)
             
             # Validate required fields
-            required_fields = ['flight_number', 'departure_date', 'departure_time', 'bag_ids']
+            required_fields = ['flight_number', 'departure_date', 'departure_time']
             for field in required_fields:
                 if not data.get(field):
                     return JsonResponse({
@@ -230,29 +256,33 @@ class ManifestCreateView(ManifestPermissionMixin, View):
                         'error': f'{field.replace("_", " ").title()} is required'
                     }, status=400)
             
-            # Validate bag_ids is not empty
+            # Get bag_ids and parcel_ids
             bag_ids = data.get('bag_ids', [])
-            if not bag_ids:
+            parcel_ids = data.get('parcel_ids', [])
+            
+            # Validate at least one bag or parcel is selected
+            if not bag_ids and not parcel_ids:
                 return JsonResponse({
                     'success': False,
-                    'error': 'At least one bag is required'
+                    'error': 'At least one bag or parcel is required'
                 }, status=400)
             
-            # Validate all bags are SEALED
-            bags = Bag.objects.filter(id__in=bag_ids)
-            if bags.count() != len(bag_ids):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'One or more bags not found'
-                }, status=400)
-            
-            non_sealed_bags = bags.exclude(status='SEALED')
-            if non_sealed_bags.exists():
-                non_sealed_numbers = ', '.join([bag.bag_number for bag in non_sealed_bags])
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Only sealed bags can be added to manifest. Non-sealed bags: {non_sealed_numbers}'
-                }, status=400)
+            # Validate bags if provided
+            if bag_ids:
+                bags = Bag.objects.filter(id__in=bag_ids)
+                if bags.count() != len(bag_ids):
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'One or more bags not found'
+                    }, status=400)
+                
+                non_sealed_bags = bags.exclude(status='SEALED')
+                if non_sealed_bags.exists():
+                    non_sealed_numbers = ', '.join([bag.bag_number for bag in non_sealed_bags])
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Only sealed bags can be added to manifest. Non-sealed bags: {non_sealed_numbers}'
+                    }, status=400)
             
             # Create manifest
             manifest = Manifest.objects.create(
@@ -265,8 +295,26 @@ class ManifestCreateView(ManifestPermissionMixin, View):
                 status='DRAFT'
             )
             
-            # Add bags
-            manifest.bags.set(bags)
+            # Add bags if provided
+            if bag_ids:
+                manifest.bags.set(bags)
+            
+            # Add individual parcels if provided
+            if parcel_ids:
+                for parcel_id in parcel_ids:
+                    try:
+                        shipment = Shipment.objects.get(id=parcel_id)
+                        manifest.add_shipment(shipment, request.user)
+                    except Shipment.DoesNotExist:
+                        # Skip invalid shipment IDs
+                        continue
+                    except ValidationError as e:
+                        # If validation fails, delete the manifest and return error
+                        manifest.delete()
+                        return JsonResponse({
+                            'success': False,
+                            'error': str(e)
+                        }, status=400)
             
             # Calculate totals using the model method
             manifest.calculate_totals()
@@ -493,14 +541,17 @@ class ShipmentEditView(ManifestPermissionMixin, View):
                     'error': 'Cannot edit shipments in finalized manifest'
                 }, status=400)
             
-            # Validate shipment is in a bag that is in the manifest
+            # Check if shipment is in this manifest (either in a bag or as individual shipment)
             shipment_bags = shipment.bags.all()
             manifest_bags = manifest.bags.all()
             
-            # Check if any of the shipment's bags are in the manifest
-            is_in_manifest = any(bag in manifest_bags for bag in shipment_bags)
+            # Check if shipment is in a bag that's in the manifest
+            is_in_bag = any(bag in manifest_bags for bag in shipment_bags)
             
-            if not is_in_manifest:
+            # Check if shipment is an individual shipment in the manifest
+            is_individual = manifest.shipments.filter(id=shipment.id).exists()
+            
+            if not is_in_bag and not is_individual:
                 return JsonResponse({
                     'success': False,
                     'error': 'Shipment is not in this manifest'
@@ -542,16 +593,15 @@ class ShipmentEditView(ManifestPermissionMixin, View):
                 updated_by=request.user
             )
             
-            # Update bag weight if weight changed
-            if weight_changed:
-                # Get the bag containing this shipment
+            # Update bag weight if weight changed and shipment is in a bag
+            if weight_changed and is_in_bag:
                 for bag in shipment_bags:
                     if bag in manifest_bags:
                         bag.update_weight()
                         break
-                
-                # Recalculate manifest totals
-                manifest.calculate_totals()
+            
+            # Recalculate manifest totals
+            manifest.calculate_totals()
             
             return JsonResponse({
                 'success': True,
@@ -747,3 +797,178 @@ class ManifestSearchByMAWBView(ManifestPermissionMixin, View):
             }, status=500)
 
 
+
+
+class ManifestAddShipmentView(ManifestPermissionMixin, View):
+    """Add individual shipment to manifest"""
+    
+    def post(self, request, pk):
+        try:
+            manifest = get_object_or_404(Manifest, pk=pk)
+            
+            # Validate manifest is DRAFT
+            if manifest.status != 'DRAFT':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot add shipments to finalized manifest'
+                }, status=400)
+            
+            data = json.loads(request.body)
+            shipment_id = data.get('shipment_id')
+            
+            if not shipment_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Shipment ID is required'
+                }, status=400)
+            
+            shipment = get_object_or_404(Shipment, pk=shipment_id)
+            
+            # Use the model method to add shipment with validation
+            try:
+                manifest.add_shipment(shipment, request.user)
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Shipment {shipment.awb_number} added to manifest successfully'
+                })
+            
+            except ValidationError as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'warning': True  # Flag to show as warning popup
+                }, status=400)
+        
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class ManifestRemoveIndividualShipmentView(ManifestPermissionMixin, View):
+    """Remove individual shipment from manifest (not from bag)"""
+    
+    def post(self, request, pk, shipment_pk):
+        try:
+            manifest = get_object_or_404(Manifest, pk=pk)
+            shipment = get_object_or_404(Shipment, pk=shipment_pk)
+            
+            # Validate manifest is DRAFT
+            if manifest.status != 'DRAFT':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot remove shipments from finalized manifest'
+                }, status=400)
+            
+            # Check if shipment is an individual shipment (not in a bag)
+            if shipment.bags.exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'This shipment is in a bag. Use the bag removal function instead.'
+                }, status=400)
+            
+            # Use the model method to remove shipment
+            manifest.remove_shipment(shipment, request.user)
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Shipment {shipment.awb_number} removed from manifest successfully'
+            })
+        
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class ManifestAvailableShipmentsView(ManifestPermissionMixin, View):
+    """Get available shipments that can be added to manifest"""
+    
+    def get(self, request, pk):
+        try:
+            manifest = get_object_or_404(Manifest, pk=pk)
+            
+            # Get shipments that are:
+            # 1. Not in any bag
+            # 2. Not in any manifest
+            # 3. Status is BOOKED or RECEIVED_AT_BD
+            # 4. Not delivered/returned/cancelled
+            available_shipments = Shipment.objects.filter(
+                bags__isnull=True,
+                manifests__isnull=True,
+                current_status__in=['BOOKED', 'RECEIVED_AT_BD']
+            ).exclude(
+                current_status__in=['DELIVERED', 'RETURNED', 'CANCELLED']
+            ).select_related('customer').order_by('-created_at')[:50]  # Limit to 50 for performance
+            
+            shipments_data = []
+            for shipment in available_shipments:
+                shipments_data.append({
+                    'id': shipment.id,
+                    'awb_number': shipment.awb_number,
+                    'recipient_name': shipment.recipient_name,
+                    'recipient_phone': shipment.recipient_phone,
+                    'weight': str(shipment.weight_estimated),
+                    'contents': shipment.contents,
+                    'current_status': shipment.current_status,
+                    'status_display': shipment.get_current_status_display(),
+                    'created_at': shipment.created_at.strftime('%Y-%m-%d %H:%M')
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'shipments': shipments_data
+            })
+        
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+
+
+class AvailableShipmentsForNewManifestView(ManifestPermissionMixin, View):
+    """Get available shipments for creating a new manifest (no manifest ID required)"""
+    
+    def get(self, request):
+        try:
+            # Get shipments that are:
+            # 1. Not in any bag
+            # 2. Not in any manifest
+            # 3. Status is BOOKED or RECEIVED_AT_BD
+            # 4. Not delivered/returned/cancelled
+            available_shipments = Shipment.objects.filter(
+                bags__isnull=True,
+                manifests__isnull=True,
+                current_status__in=['BOOKED', 'RECEIVED_AT_BD']
+            ).exclude(
+                current_status__in=['DELIVERED', 'RETURNED', 'CANCELLED']
+            ).select_related('customer').order_by('-created_at')[:50]  # Limit to 50 for performance
+            
+            shipments_data = []
+            for shipment in available_shipments:
+                shipments_data.append({
+                    'id': shipment.id,
+                    'awb_number': shipment.awb_number,
+                    'recipient_name': shipment.recipient_name,
+                    'recipient_phone': shipment.recipient_phone,
+                    'weight': str(shipment.weight_estimated),
+                    'contents': shipment.contents,
+                    'current_status': shipment.current_status,
+                    'status_display': shipment.get_current_status_display(),
+                    'created_at': shipment.created_at.strftime('%Y-%m-%d %H:%M')
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'shipments': shipments_data
+            })
+        
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)

@@ -205,11 +205,6 @@
                                 <button onclick="printBagLabel({{ bag.id }})" class="text-xs px-3 py-1.5 bg-blue-600 text-white border border-black hover:bg-blue-700 rounded font-medium transition-colors">
                                     Print Label
                                 </button>
-                                {% if bag.status == 'SEALED' and bag.air_invoice %}
-                                <a href="{% url 'download_air_invoice' bag.id %}" target="_blank" class="text-xs px-3 py-1.5 bg-green-600 text-white border border-black hover:bg-green-700 rounded font-medium transition-colors">
-                                    Download Invoice
-                                </a>
-                                {% endif %}
                                 {% if bag.status == 'OPEN' %}
                                 <button onclick="deleteBag({{ bag.id }}, '{{ bag.bag_number }}')" class="text-xs px-3 py-1.5 bg-red-600 text-white border border-black hover:bg-red-700 rounded font-medium transition-colors">
                                     Delete
