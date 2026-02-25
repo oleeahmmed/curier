@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -407,7 +408,7 @@ body {
     
     <div class="header">
         <div class="logo-box">
-            <img src="/static/cropedlogo.png" alt="Fast Track Trans Logo" class="logo-img">
+            <img src="{% if logo_path %}{{ logo_path }}{% else %}{% static 'cropedlogo.png' %}{% endif %}" alt="Fast Track Trans Logo" class="logo-img">
         </div>
 
         <div class="company-info serif">

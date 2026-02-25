@@ -880,6 +880,7 @@ def invoice_view(request, shipment_id):
         'qrcode_url': shipment.get_qrcode_url(),
         'formatted_date': shipment.created_at.strftime('%d/%m/%Y'),
         'dimensions': f"{shipment.length or 0}cm x {shipment.width or 0}cm x {shipment.height or 0}cm" if shipment.length else 'N/A',
+        'logo_path': request.build_absolute_uri('/static/cropedlogo.png'),
     }
     
     # Render exportimport/invoice.html template
