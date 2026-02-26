@@ -1838,3 +1838,48 @@ def generate_empty_hawb(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+# ==================== PUBLIC TRACKING API ====================
+@require_http_methods(["GET"])
+def track_shipment_api(request, awb_number):
+    """
+    Public API endpoint to track shipment by AWB number.
+    Returns only tracking events, no authentication required.
+    """
+    try:
+        # Get shipment by AWB number
+        shipment = get_object_or_404(Shipment, awb_number=awb_number)
+        
+        # Get tracking events
+        tracking_events = shipment.tracking_events.all().order_by('-timestamp')
+        
+        # Format tracking events
+        events = [
+            {
+                'status': event.status,
+                'status_display': dict(Shipment.STATUS_CHOICES).get(event.status, event.status),
+                'description': event.description,
+                'location': event.location,
+                'timestamp': event.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            }
+            for event in tracking_events
+        ]
+        
+        return JsonResponse({
+            'success': True,
+            'awb_number': awb_number,
+            'tracking_events': events
+        })
+    
+    except Shipment.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Shipment not found'
+        }, status=404)
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

@@ -78,4 +78,7 @@ urlpatterns = [
     path('manifests/<int:pk>/remove-individual-shipment/<int:shipment_pk>/', manifest_views.ManifestRemoveIndividualShipmentView.as_view(), name='manifest_remove_individual_shipment'),
     path('manifests/<int:pk>/available-shipments/', manifest_views.ManifestAvailableShipmentsView.as_view(), name='manifest_available_shipments'),
     path('manifests/available-shipments-for-new/', manifest_views.AvailableShipmentsForNewManifestView.as_view(), name='available_shipments_for_new_manifest'),
+    
+    # Public Tracking API
+    path('api/track/<str:awb_number>/', views.track_shipment_api, name='track_shipment_api'),
 ]
