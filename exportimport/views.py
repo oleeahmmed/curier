@@ -1783,3 +1783,58 @@ def get_next_actions(shipment):
         })
     
     return result
+
+
+# ==================== GENERATE EMPTY HAWB ====================
+@login_required(login_url='login')
+@require_http_methods(["POST"])
+def generate_empty_hawb(request):
+    """Generate an empty HAWB for manual filling later"""
+    try:
+        # Only staff can generate empty HAWBs
+        if not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'error': 'Only staff can generate empty HAWBs'
+            }, status=403)
+        
+        # Create empty shipment with minimal required fields
+        shipment = Shipment.objects.create(
+            direction=None,  # Empty direction - to be filled manually
+            current_status='BOOKED',  # Set to BOOKED to generate AWB
+            booked_by=request.user,
+            shipper_name='',
+            shipper_phone='',
+            shipper_address='',
+            shipper_country='',
+            recipient_name='',
+            recipient_phone='',
+            recipient_address='',
+            recipient_country='',
+            contents='',
+            declared_value=None,
+            weight_estimated=None,
+            quantity=None
+        )
+        
+        # Create tracking event
+        TrackingEvent.objects.create(
+            shipment=shipment,
+            status='BOOKED',
+            description='Empty HAWB generated for manual filling',
+            location='Bangladesh Warehouse',
+            updated_by=request.user
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Empty HAWB generated successfully',
+            'parcel_id': shipment.id,
+            'awb_number': shipment.awb_number
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

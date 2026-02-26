@@ -49,6 +49,12 @@
         </svg>
         Create Parcel
     </button>
+    <button onclick="generateEmptyHAWB()" class="btn btn-secondary flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Generate Empty HAWB
+    </button>
 </div>
 
 <!-- Scanner Card - Compact Design -->
@@ -283,6 +289,29 @@
     </div>
 </div>
 
+<!-- Generic Confirmation Modal (Reusable) -->
+<div id="genericConfirmModal" class="modal">
+    <div class="modal-content max-w-md">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mx-auto mb-4">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h3 id="genericConfirmTitle" class="text-lg font-semibold text-gray-900 text-center mb-2">Confirm Action</h3>
+            <p id="genericConfirmMessage" class="text-sm text-gray-600 text-center mb-6">Are you sure you want to proceed?</p>
+            <div class="flex gap-3">
+                <button onclick="hideModal('genericConfirmModal')" class="flex-1 btn btn-secondary">
+                    Cancel
+                </button>
+                <button id="genericConfirmBtn" class="flex-1 btn btn-primary">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delivery Proof Modal -->
 <div id="deliveryModal" class="modal">
     <div class="modal-content">
@@ -392,6 +421,8 @@
                         <label class="form-label">Direction *</label>
                         <select id="direction" class="form-input" required>
                             <option value="BD_TO_HK">Bangladesh to Hong Kong</option>
+                            <option value="BD_TO_UK">Bangladesh to United Kingdom</option>
+                            <option value="BD_TO_CN">Bangladesh to China</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1122,6 +1153,60 @@ function submitCreateParcel() {
         hideLoading();
         toast('Failed to create parcel');
     });
+}
+
+// Generate Empty HAWB
+async function generateEmptyHAWB() {
+    showGenericConfirm(
+        'Generate Empty HAWB',
+        'This will create a blank shipment that can be filled in later. Continue?',
+        async function() {
+            showLoading();
+            
+            try {
+                const response = await fetch('/parcels/generate-empty-hawb/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+                
+                const result = await response.json();
+                hideLoading();
+                
+                if (result.success) {
+                    toast('✓ Empty HAWB generated: ' + result.awb_number);
+                    // Redirect to parcel details page
+                    window.location.href = `/parcels/${result.parcel_id}/details/`;
+                } else {
+                    toast('Error: ' + result.error);
+                }
+            } catch (err) {
+                hideLoading();
+                toast('Request failed');
+            }
+        }
+    );
+}
+
+// Generic Confirmation Modal Helper (Reusable)
+function showGenericConfirm(title, message, onConfirm) {
+    document.getElementById('genericConfirmTitle').textContent = title;
+    document.getElementById('genericConfirmMessage').textContent = message;
+    
+    // Remove old event listeners by cloning the button
+    const oldBtn = document.getElementById('genericConfirmBtn');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    
+    // Add new event listener
+    newBtn.onclick = function() {
+        hideModal('genericConfirmModal');
+        if (onConfirm) onConfirm();
+    };
+    
+    showModal('genericConfirmModal');
 }
 </script>
 {% endblock %}

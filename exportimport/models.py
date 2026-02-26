@@ -49,6 +49,8 @@ class Customer(models.Model):
 class Shipment(models.Model):
     DIRECTION_CHOICES = [
         ('BD_TO_HK', 'Bangladesh to Hong Kong'),
+        ('BD_TO_UK', 'Bangladesh to United Kingdom'),
+        ('BD_TO_CN', 'Bangladesh to China'),
     ]
     
     STATUS_BD_TO_HK = [
@@ -64,7 +66,33 @@ class Shipment(models.Model):
         ('DELIVERED_IN_HK', 'Delivered in Hong Kong'),
     ]
     
-    STATUS_CHOICES = STATUS_BD_TO_HK + [
+    STATUS_BD_TO_UK = [
+        ('PENDING', 'PENDING'),
+        ('BOOKED', 'Booked'),
+        ('RECEIVED_AT_BD', 'Received at Bangladesh Warehouse'),
+        ('READY_FOR_SORTING', 'Ready for Sorting'),
+        ('BAGGED_FOR_EXPORT', 'Bagged for Export'),
+        ('IN_EXPORT_MANIFEST', 'In Export Manifest'),
+        ('HANDED_TO_AIRLINE', 'Handed to Airline'),
+        ('IN_TRANSIT_TO_UK', 'In Transit to United Kingdom'),
+        ('ARRIVED_AT_UK', 'Arrived at United Kingdom'),
+        ('DELIVERED_IN_UK', 'Delivered in United Kingdom'),
+    ]
+    
+    STATUS_BD_TO_CN = [
+        ('PENDING', 'PENDING'),
+        ('BOOKED', 'Booked'),
+        ('RECEIVED_AT_BD', 'Received at Bangladesh Warehouse'),
+        ('READY_FOR_SORTING', 'Ready for Sorting'),
+        ('BAGGED_FOR_EXPORT', 'Bagged for Export'),
+        ('IN_EXPORT_MANIFEST', 'In Export Manifest'),
+        ('HANDED_TO_AIRLINE', 'Handed to Airline'),
+        ('IN_TRANSIT_TO_CN', 'In Transit to China'),
+        ('ARRIVED_AT_CN', 'Arrived at China'),
+        ('DELIVERED_IN_CN', 'Delivered in China'),
+    ]
+    
+    STATUS_CHOICES = STATUS_BD_TO_HK + STATUS_BD_TO_UK + STATUS_BD_TO_CN + [
         ('EXCEPTION_DAMAGED', 'Exception - Damaged'),
         ('EXCEPTION_CUSTOMS_HOLD', 'Exception - Customs Hold'),
         ('RETURN_TO_SENDER', 'Return to Sender'),
@@ -83,7 +111,7 @@ class Shipment(models.Model):
     
     awb_number = models.CharField(max_length=50, unique=True, editable=False, blank=True, null=True)
     external_awb = models.CharField(max_length=50, blank=True, null=True, help_text="External AWB (from HK/Airline)")
-    direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
+    direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES, blank=True, null=True)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='shipments', null=True, blank=True)
     
     shipper_name = models.CharField(max_length=200, blank=True, null=True)
@@ -159,15 +187,30 @@ class Shipment(models.Model):
             
             if self.direction == 'BD_TO_HK':
                 self.awb_number = f"DH{date_str}{random_num}"
-            else:
+            elif self.direction == 'BD_TO_UK':
+                self.awb_number = f"DU{date_str}{random_num}"
+            elif self.direction == 'BD_TO_CN':
+                self.awb_number = f"DC{date_str}{random_num}"
+            elif self.direction:
                 self.awb_number = f"HD{date_str}{random_num}"
+            else:
+                # Empty direction - generate generic AWB
+                self.awb_number = f"EM{date_str}{random_num}"
         
+        # Set countries based on direction (only if direction is set)
         if self.direction == 'BD_TO_HK':
             self.shipper_country = 'Bangladesh'
             self.recipient_country = 'Hong Kong'
-        else:
+        elif self.direction == 'BD_TO_UK':
+            self.shipper_country = 'Bangladesh'
+            self.recipient_country = 'United Kingdom'
+        elif self.direction == 'BD_TO_CN':
+            self.shipper_country = 'Bangladesh'
+            self.recipient_country = 'China'
+        elif self.direction:
             self.shipper_country = 'Hong Kong'
             self.recipient_country = 'Bangladesh'
+        # If direction is None/empty, don't set countries
         
         super().save(*args, **kwargs)
     

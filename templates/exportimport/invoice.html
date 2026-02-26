@@ -436,15 +436,15 @@ body {
         </div>
         <div class="cell">
             <div class="cell-label center">Shipper Account No.</div>
-            <div class="cell-value bold">{{ shipment.customer.id|default:"N/A" }}</div>
+            <div class="cell-value bold">{{ shipment.customer.id|default:"" }}</div>
         </div>
         <div class="cell">
             <div class="cell-label center">No. of Package</div>
-            <div class="cell-value bold">{{ shipment.quantity|default:1 }}</div>
+            <div class="cell-value bold">{{ shipment.quantity|default:"" }}</div>
         </div>
         <div class="cell">
             <div class="cell-label center">Actual Weight (Kgs)</div>
-            <div class="cell-value bold">{{ shipment.weight_estimated }}</div>
+            <div class="cell-value bold">{{ shipment.weight_estimated|default:"" }}</div>
         </div>
         <div class="cell">
             <div class="cell-label center">Origin</div>
@@ -534,7 +534,7 @@ body {
             </div>
             <div class="section-title">Total Amount</div>
             <div class="dims-bottom">
-                <div class="cell-value">{{ shipment.declared_value }} {{ shipment.declared_currency }}</div>
+                <div class="cell-value">{% if shipment.declared_value %}{{ shipment.declared_value }} {{ shipment.declared_currency }}{% endif %}</div>
             </div>
         </div>
     </div>
