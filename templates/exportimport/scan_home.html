@@ -459,6 +459,10 @@
                             <input type="number" step="0.01" id="weight_estimated" class="form-input" required>
                         </div>
                         <div class="form-group">
+                            <label class="form-label">Quantity *</label>
+                            <input type="number" min="1" id="quantity" value="1" class="form-input" required>
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">Declared Value *</label>
                             <input type="number" step="0.01" id="declared_value" class="form-input" required>
                         </div>
@@ -1075,6 +1079,7 @@ function submitCreateParcel() {
         recipient_phone: document.getElementById('recipient_phone').value,
         recipient_address: document.getElementById('recipient_address').value,
         weight_estimated: document.getElementById('weight_estimated').value,
+        quantity: document.getElementById('quantity').value,
         declared_value: document.getElementById('declared_value').value,
         declared_currency: document.getElementById('declared_currency').value,
         contents: document.getElementById('contents').value,
