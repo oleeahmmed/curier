@@ -86,18 +86,18 @@ class Shipment(models.Model):
     direction = models.CharField(max_length=20, choices=DIRECTION_CHOICES)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='shipments', null=True, blank=True)
     
-    shipper_name = models.CharField(max_length=200)
-    shipper_phone = models.CharField(max_length=20)
-    shipper_address = models.TextField()
+    shipper_name = models.CharField(max_length=200, blank=True, null=True)
+    shipper_phone = models.CharField(max_length=20, blank=True, null=True)
+    shipper_address = models.TextField(blank=True, null=True)
     shipper_country = models.CharField(max_length=100, default='Bangladesh')
     
-    recipient_name = models.CharField(max_length=200)
-    recipient_phone = models.CharField(max_length=20)
-    recipient_address = models.TextField()
+    recipient_name = models.CharField(max_length=200, blank=True, null=True)
+    recipient_phone = models.CharField(max_length=20, blank=True, null=True)
+    recipient_address = models.TextField(blank=True, null=True)
     recipient_country = models.CharField(max_length=100, default='Hong Kong')
     
-    contents = models.TextField(help_text="Parcel contents")
-    declared_value = models.DecimalField(max_digits=10, decimal_places=2)
+    contents = models.TextField(help_text="Parcel contents", blank=True, null=True)
+    declared_value = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     declared_currency = models.CharField(
         max_length=3,
         default='USD',
@@ -108,13 +108,13 @@ class Shipment(models.Model):
         ]
     )
     
-    weight_estimated = models.DecimalField(max_digits=6, decimal_places=2, help_text="KG")
+    weight_estimated = models.DecimalField(max_digits=6, decimal_places=2, help_text="KG", blank=True, null=True)
     weight_actual = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="KG")
     length = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="CM")
     width = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="CM")
     height = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="CM")
     
-    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES, default='EXPRESS')
+    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES, default='EXPRESS', blank=True, null=True)
     current_status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='BOOKED')
     
     payment_method = models.CharField(
@@ -124,7 +124,9 @@ class Shipment(models.Model):
             ('CASH', 'Cash at Warehouse'),
             ('CREDIT', 'Credit Account'),
             ('COD', 'Cash on Delivery'),
-        ]
+        ],
+        blank=True,
+        null=True
     )
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='PENDING')
     shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -134,7 +136,7 @@ class Shipment(models.Model):
     
     is_fragile = models.BooleanField(default=False)
     is_liquid = models.BooleanField(default=False)
-    quantity = models.IntegerField(default=1, help_text="Number of items in shipment")
+    quantity = models.IntegerField(default=1, help_text="Number of items in shipment", blank=True, null=True)
     special_instructions = models.TextField(blank=True, null=True)
     
     hk_reference = models.CharField(max_length=100, blank=True, null=True, help_text="HK warehouse reference")

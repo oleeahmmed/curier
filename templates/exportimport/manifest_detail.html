@@ -179,16 +179,16 @@
                 <h4 class="text-sm font-semibold text-gray-900 mb-3">Shipper Information</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div class="form-group">
-                        <label class="form-label text-sm">Shipper Name *</label>
-                        <input type="text" id="editSenderName" class="form-input" required>
+                        <label class="form-label text-sm">Shipper Name</label>
+                        <input type="text" id="editSenderName" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Shipper Phone *</label>
-                        <input type="text" id="editSenderPhone" class="form-input" required>
+                        <label class="form-label text-sm">Shipper Phone</label>
+                        <input type="text" id="editSenderPhone" class="form-input">
                     </div>
                     <div class="form-group md:col-span-2">
-                        <label class="form-label text-sm">Shipper Address *</label>
-                        <textarea id="editSenderAddress" rows="2" class="form-input" required></textarea>
+                        <label class="form-label text-sm">Shipper Address</label>
+                        <textarea id="editSenderAddress" rows="2" class="form-input"></textarea>
                     </div>
                 </div>
             </div>
@@ -198,16 +198,16 @@
                 <h4 class="text-sm font-semibold text-gray-900 mb-3">Recipient Information</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div class="form-group">
-                        <label class="form-label text-sm">Recipient Name *</label>
-                        <input type="text" id="editRecipientName" class="form-input" required>
+                        <label class="form-label text-sm">Recipient Name</label>
+                        <input type="text" id="editRecipientName" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Recipient Phone *</label>
-                        <input type="text" id="editRecipientPhone" class="form-input" required>
+                        <label class="form-label text-sm">Recipient Phone</label>
+                        <input type="text" id="editRecipientPhone" class="form-input">
                     </div>
                     <div class="form-group md:col-span-2">
-                        <label class="form-label text-sm">Recipient Address *</label>
-                        <textarea id="editRecipientAddress" rows="2" class="form-input" required></textarea>
+                        <label class="form-label text-sm">Recipient Address</label>
+                        <textarea id="editRecipientAddress" rows="2" class="form-input"></textarea>
                     </div>
                 </div>
             </div>
@@ -217,20 +217,27 @@
                 <h4 class="text-sm font-semibold text-gray-900 mb-3">Parcel Details</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div class="form-group md:col-span-2">
-                        <label class="form-label text-sm">Contents *</label>
-                        <textarea id="editContents" rows="2" class="form-input" required></textarea>
+                        <label class="form-label text-sm">Contents</label>
+                        <textarea id="editContents" rows="2" class="form-input"></textarea>
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Weight (KG) *</label>
-                        <input type="number" id="editWeight" step="0.01" min="0.01" class="form-input" required>
+                        <label class="form-label text-sm">Weight (KG)</label>
+                        <input type="number" id="editWeight" step="0.01" min="0.01" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Quantity *</label>
-                        <input type="number" id="editQuantity" min="1" value="1" class="form-input" required>
+                        <label class="form-label text-sm">Quantity</label>
+                        <input type="number" id="editQuantity" min="1" value="1" class="form-input">
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Declared Value *</label>
-                        <input type="number" id="editDeclaredValue" step="0.01" min="0" class="form-input" required>
+                        <label class="form-label text-sm">Declared Value</label>
+                        <input type="number" id="editDeclaredValue" step="0.01" min="0" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Service Type</label>
+                        <select id="editServiceType" class="form-input">
+                            <option value="EXPRESS">Express</option>
+                            <option value="STANDARD">Standard</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label text-sm">Payment Method</label>
@@ -746,26 +753,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Save shipment edit
 async function saveShipmentEdit() {
     const shipmentId = document.getElementById('editShipmentId').value;
-    
-    // Validate required fields
-    const requiredFields = [
-        { id: 'editSenderName', name: 'Shipper Name' },
-        { id: 'editSenderPhone', name: 'Shipper Phone' },
-        { id: 'editSenderAddress', name: 'Shipper Address' },
-        { id: 'editRecipientName', name: 'Recipient Name' },
-        { id: 'editRecipientPhone', name: 'Recipient Phone' },
-        { id: 'editRecipientAddress', name: 'Recipient Address' },
-        { id: 'editContents', name: 'Contents' },
-        { id: 'editWeight', name: 'Weight' },
-        { id: 'editDeclaredValue', name: 'Declared Value' }
-    ];
-    
-    for (const field of requiredFields) {
-        const element = document.getElementById(field.id);
-        if (!element || !element.value.trim()) {
-            toast(`${field.name} is required`);
-            return;
-        }
     }
     
     const data = {
