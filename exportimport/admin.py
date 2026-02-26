@@ -292,6 +292,7 @@ class ShipmentAdmin(ModelAdmin):
             'fields': (
                 ('awb_number', 'direction', 'customer'),
                 ('current_status','declared_value', 'weight_estimated'),
+                ('quantity',),
                 ('contents',),
                 
             ),

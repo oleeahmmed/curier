@@ -31,7 +31,7 @@
                 </a>
                 {% endif %}
                 {% if shipment.current_status != 'PENDING' %}
-                <a href="{% url 'invoice_view' shipment.id %}" class="btn btn-secondary" target="_blank">
+                <a href="{% url 'hawb_view' shipment.id %}" class="btn btn-secondary" target="_blank">
                     View HAWB
                 </a>
                 {% endif %}
@@ -90,6 +90,16 @@
                         <dt class="text-sm text-gray-500 w-32">Weight:</dt>
                         <dd class="text-sm text-gray-900">{{ shipment.weight_estimated }} KG</dd>
                     </div>
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Quantity:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.quantity }}</dd>
+                    </div>
+                    {% if shipment.length or shipment.width or shipment.height %}
+                    <div class="flex">
+                        <dt class="text-sm text-gray-500 w-32">Dimensions:</dt>
+                        <dd class="text-sm text-gray-900">{{ shipment.length|default:"0" }} x {{ shipment.width|default:"0" }} x {{ shipment.height|default:"0" }} cm</dd>
+                    </div>
+                    {% endif %}
                     <div class="flex">
                         <dt class="text-sm text-gray-500 w-32">Declared Value:</dt>
                         <dd class="text-sm text-gray-900">{{ shipment.declared_currency }} {{ shipment.declared_value }}</dd>

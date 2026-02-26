@@ -162,6 +162,7 @@ class ManifestDetailView(ManifestPermissionMixin, View):
                     'recipient_address': shipment.recipient_address,
                     'shipper_name': shipment.shipper_name,
                     'weight': str(shipment.weight_estimated),
+                    'quantity': shipment.quantity,
                     'length': str(shipment.length) if shipment.length else None,
                     'width': str(shipment.width) if shipment.width else None,
                     'height': str(shipment.height) if shipment.height else None,
@@ -200,6 +201,7 @@ class ManifestDetailView(ManifestPermissionMixin, View):
                 'recipient_address': shipment.recipient_address,
                 'shipper_name': shipment.shipper_name,
                 'weight': str(shipment.weight_estimated),
+                'quantity': shipment.quantity,
                 'length': str(shipment.length) if shipment.length else None,
                 'width': str(shipment.width) if shipment.width else None,
                 'height': str(shipment.height) if shipment.height else None,
@@ -570,6 +572,9 @@ class ShipmentEditView(ManifestPermissionMixin, View):
                     shipment.weight_estimated = new_weight
                     weight_changed = True
             
+            if 'quantity' in data:
+                shipment.quantity = data['quantity']
+            
             if 'length' in data:
                 shipment.length = data['length']
             
@@ -578,6 +583,9 @@ class ShipmentEditView(ManifestPermissionMixin, View):
             
             if 'height' in data:
                 shipment.height = data['height']
+            
+            if 'payment_method' in data:
+                shipment.payment_method = data['payment_method']
             
             if 'contents' in data:
                 shipment.contents = data['contents']

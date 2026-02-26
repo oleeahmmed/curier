@@ -183,6 +183,7 @@ def scan_shipment(request, awb):
                 'recipient_phone': shipment.recipient_phone,
                 'contents': shipment.contents,
                 'weight': str(shipment.weight_estimated),
+                'quantity': shipment.quantity,
                 'is_fragile': shipment.is_fragile,
                 'is_liquid': shipment.is_liquid,
                 'is_cod': shipment.is_cod,
@@ -506,6 +507,7 @@ def create_parcel(request):
             declared_value=data['declared_value'],
             declared_currency=data.get('declared_currency', 'USD'),
             weight_estimated=data['weight_estimated'],
+            quantity=data.get('quantity', 1),
             contents=data['contents'],
             shipper_name=data['shipper_name'],
             shipper_phone=data['shipper_phone'],
@@ -576,6 +578,10 @@ def get_parcel(request, parcel_id):
                 'declared_value': str(shipment.declared_value),
                 'declared_currency': shipment.declared_currency,
                 'weight_estimated': str(shipment.weight_estimated),
+                'quantity': shipment.quantity,
+                'length': str(shipment.length) if shipment.length else None,
+                'width': str(shipment.width) if shipment.width else None,
+                'height': str(shipment.height) if shipment.height else None,
                 'contents': shipment.contents,
                 'shipper_name': shipment.shipper_name,
                 'shipper_phone': shipment.shipper_phone,
@@ -663,6 +669,10 @@ def update_parcel(request, parcel_id):
         shipment.declared_value = data.get('declared_value', shipment.declared_value)
         shipment.declared_currency = data.get('declared_currency', shipment.declared_currency)
         shipment.weight_estimated = data.get('weight_estimated', shipment.weight_estimated)
+        shipment.quantity = data.get('quantity', shipment.quantity)
+        shipment.length = data.get('length', shipment.length)
+        shipment.width = data.get('width', shipment.width)
+        shipment.height = data.get('height', shipment.height)
         shipment.contents = data.get('contents', shipment.contents)
         shipment.shipper_name = data.get('shipper_name', shipment.shipper_name)
         shipment.shipper_phone = data.get('shipper_phone', shipment.shipper_phone)
@@ -786,9 +796,9 @@ def book_parcel(request, parcel_id):
             updated_by=request.user
         )
 
-        # Generate invoice URL
+        # Generate HAWB URL
         from django.urls import reverse
-        invoice_url = reverse('invoice_view', kwargs={'shipment_id': shipment.id})
+        invoice_url = reverse('hawb_view', kwargs={'shipment_id': shipment.id})
 
         return JsonResponse({
             'success': True,

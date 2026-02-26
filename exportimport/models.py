@@ -134,6 +134,7 @@ class Shipment(models.Model):
     
     is_fragile = models.BooleanField(default=False)
     is_liquid = models.BooleanField(default=False)
+    quantity = models.IntegerField(default=1, help_text="Number of items in shipment")
     special_instructions = models.TextField(blank=True, null=True)
     
     hk_reference = models.CharField(max_length=100, blank=True, null=True, help_text="HK warehouse reference")

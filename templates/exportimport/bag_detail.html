@@ -440,15 +440,12 @@
                         <input type="number" id="editWeight" step="0.01" min="0.01" class="form-input" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Declared Value *</label>
-                        <input type="number" id="editDeclaredValue" step="0.01" min="0" class="form-input" required>
+                        <label class="form-label text-sm">Quantity *</label>
+                        <input type="number" id="editQuantity" min="1" value="1" class="form-input" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label text-sm">Service Type</label>
-                        <select id="editServiceType" class="form-input">
-                            <option value="EXPRESS">Express</option>
-                            <option value="STANDARD">Standard</option>
-                        </select>
+                        <label class="form-label text-sm">Declared Value *</label>
+                        <input type="number" id="editDeclaredValue" step="0.01" min="0" class="form-input" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label text-sm">Payment Method</label>
@@ -458,6 +455,34 @@
                             <option value="CREDIT">Credit Account</option>
                             <option value="COD">Cash on Delivery</option>
                         </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-3 mt-3">
+                    <div class="form-group">
+                        <label class="form-label text-sm">Length (cm)</label>
+                        <input type="number" id="editLength" step="0.01" class="form-input" placeholder="Optional">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Width (cm)</label>
+                        <input type="number" id="editWidth" step="0.01" class="form-input" placeholder="Optional">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-sm">Height (cm)</label>
+                        <input type="number" id="editHeight" step="0.01" class="form-input" placeholder="Optional">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div class="form-group">
+                        <label class="form-label text-sm">Service Type</label>
+                        <select id="editServiceType" class="form-input">
+                            <option value="EXPRESS">Express</option>
+                            <option value="STANDARD">Standard</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <!-- Empty for grid alignment -->
                     </div>
                 </div>
                 
@@ -839,9 +864,13 @@ async function editShipment(shipmentId) {
             document.getElementById('editContents').value = parcel.contents || '';
             document.getElementById('editWeight').value = parcel.weight_estimated || '';
             document.getElementById('editWeight').dataset.oldWeight = parcel.weight_estimated || '0';
+            document.getElementById('editQuantity').value = parcel.quantity || 1;
             document.getElementById('editDeclaredValue').value = parcel.declared_value || '';
             document.getElementById('editServiceType').value = parcel.service_type || 'EXPRESS';
             document.getElementById('editPaymentMethod').value = parcel.payment_method || 'PREPAID';
+            document.getElementById('editLength').value = parcel.length || '';
+            document.getElementById('editWidth').value = parcel.width || '';
+            document.getElementById('editHeight').value = parcel.height || '';
             document.getElementById('editIsFragile').checked = parcel.is_fragile || false;
             document.getElementById('editIsLiquid').checked = parcel.is_liquid || false;
             document.getElementById('editIsCod').checked = parcel.is_cod || false;
@@ -926,9 +955,13 @@ async function saveShipmentEdit() {
         recipient_address: document.getElementById('editRecipientAddress').value.trim(),
         contents: document.getElementById('editContents').value.trim(),
         weight_estimated: parseFloat(document.getElementById('editWeight').value),
+        quantity: parseInt(document.getElementById('editQuantity').value) || 1,
         declared_value: parseFloat(document.getElementById('editDeclaredValue').value),
         service_type: document.getElementById('editServiceType').value,
         payment_method: document.getElementById('editPaymentMethod').value,
+        length: document.getElementById('editLength').value || null,
+        width: document.getElementById('editWidth').value || null,
+        height: document.getElementById('editHeight').value || null,
         is_fragile: document.getElementById('editIsFragile').checked,
         is_liquid: document.getElementById('editIsLiquid').checked,
         is_cod: document.getElementById('editIsCod').checked,

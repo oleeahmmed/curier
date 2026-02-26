@@ -32,6 +32,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
             'contents',
             'weight_estimated',
             'weight_actual',
+            'quantity',
             'service_type',
             'service_type_display',
             'payment_status',

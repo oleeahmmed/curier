@@ -35,10 +35,10 @@ urlpatterns = [
     # Pending Parcels (Staff)
     path('pending-parcels/', views.pending_parcels, name='pending_parcels'),
     
-    # Invoice View
-    path('invoice/<int:shipment_id>/', views.invoice_view, name='invoice_view'),
+    # HAWB View
+    path('hawb/<int:shipment_id>/', views.invoice_view, name='hawb_view'),
     
-    # Invoice Management
+    # Invoice Management (Commercial Invoice)
     path('invoice/<int:shipment_id>/upload/', views.invoice_upload_view, name='invoice_upload'),
     path('invoice/<int:shipment_id>/generate/', views.invoice_generate_view, name='invoice_generate'),
     path('invoice/<int:shipment_id>/delete/', views.invoice_delete_view, name='invoice_delete'),

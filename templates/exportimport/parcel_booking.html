@@ -120,7 +120,7 @@
                                     <button onclick="event.stopPropagation(); deleteParcel({{ parcel.id }}, '{{ parcel.awb_number }}')" class="text-xs text-black hover:text-gray-600 font-medium">Delete</button>
                                     {% endif %}
                                     {% if parcel.current_status != 'PENDING' %}
-                                    <a href="{% url 'invoice_view' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View HAWB</a>
+                                    <a href="{% url 'hawb_view' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View HAWB</a>
                                     {% endif %}
                                     {% if not user.is_staff and parcel.current_status != 'PENDING' %}
                                     <a href="{% url 'parcel_details' parcel.id %}" onclick="event.stopPropagation();" class="text-xs text-black hover:text-gray-600 font-medium">View</a>
@@ -187,6 +187,11 @@
             </div>
             
             <div class="form-group">
+                <label class="form-label">Quantity *</label>
+                <input type="number" id="quantity" min="1" value="1" required class="form-input">
+            </div>
+            
+            <div class="form-group">
                 <label class="form-label">Contents *</label>
                 <textarea id="contents" rows="2" required class="form-input"></textarea>
             </div>
@@ -224,7 +229,37 @@
                         <input type="checkbox" id="isCod" class="mr-2 rounded">
                         <span class="text-sm text-gray-700">Cash on Delivery</span>
                     </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="showDimensions" class="mr-2 rounded">
+                        <span class="text-sm text-gray-700">Add Dimensions (L x W x H)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="showPaymentMethod" class="mr-2 rounded">
+                        <span class="text-sm text-gray-700">Specify Payment Method</span>
+                    </label>
                 </div>
+                
+                <!-- Dimensions Section (Hidden by default) -->
+                <div id="dimensionsDiv" class="mt-3 hidden">
+                    <label class="form-label text-sm">Dimensions (cm)</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <input type="number" id="length" step="0.01" placeholder="Length" class="form-input">
+                        <input type="number" id="width" step="0.01" placeholder="Width" class="form-input">
+                        <input type="number" id="height" step="0.01" placeholder="Height" class="form-input">
+                    </div>
+                </div>
+                
+                <!-- Payment Method Section (Hidden by default) -->
+                <div id="paymentMethodDiv" class="mt-3 hidden">
+                    <label class="form-label text-sm">Payment Method</label>
+                    <select id="paymentMethod" class="form-input">
+                        <option value="PREPAID">Prepaid</option>
+                        <option value="CASH">Cash at Warehouse</option>
+                        <option value="CREDIT">Credit Account</option>
+                        <option value="COD">Cash on Delivery</option>
+                    </select>
+                </div>
+                
                 <div id="codAmountDiv" class="mt-3 hidden">
                     <label class="form-label">COD Amount</label>
                     <input type="number" id="codAmount" step="0.01" class="form-input">
@@ -308,6 +343,16 @@ document.getElementById('isCod').onchange = (e) => {
     document.getElementById('codAmountDiv').classList.toggle('hidden', !e.target.checked);
 };
 
+// Dimensions Toggle
+document.getElementById('showDimensions').onchange = (e) => {
+    document.getElementById('dimensionsDiv').classList.toggle('hidden', !e.target.checked);
+};
+
+// Payment Method Toggle
+document.getElementById('showPaymentMethod').onchange = (e) => {
+    document.getElementById('paymentMethodDiv').classList.toggle('hidden', !e.target.checked);
+};
+
 // Submit Form
 document.getElementById('parcelForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -317,6 +362,7 @@ document.getElementById('parcelForm').onsubmit = async (e) => {
         declared_value: document.getElementById('declaredValue').value,
         declared_currency: document.getElementById('declaredCurrency').value,
         weight_estimated: document.getElementById('weight').value,
+        quantity: document.getElementById('quantity').value,
         contents: document.getElementById('contents').value,
         shipper_name: document.getElementById('senderName').value,
         shipper_phone: document.getElementById('senderPhone').value,
@@ -330,6 +376,18 @@ document.getElementById('parcelForm').onsubmit = async (e) => {
         cod_amount: document.getElementById('codAmount').value || null,
         special_instructions: document.getElementById('specialInstructions').value,
     };
+    
+    // Only add dimensions if checkbox is checked
+    if (document.getElementById('showDimensions').checked) {
+        data.length = document.getElementById('length').value || null;
+        data.width = document.getElementById('width').value || null;
+        data.height = document.getElementById('height').value || null;
+    }
+    
+    // Only add payment method if checkbox is checked
+    if (document.getElementById('showPaymentMethod').checked) {
+        data.payment_method = document.getElementById('paymentMethod').value;
+    }
     
     showLoading();
     
@@ -383,6 +441,7 @@ async function editParcel(id) {
             document.getElementById('declaredValue').value = p.declared_value;
             document.getElementById('declaredCurrency').value = p.declared_currency;
             document.getElementById('weight').value = p.weight_estimated;
+            document.getElementById('quantity').value = p.quantity || 1;
             document.getElementById('contents').value = p.contents;
             document.getElementById('senderName').value = p.shipper_name;
             document.getElementById('senderPhone').value = p.shipper_phone;
@@ -398,6 +457,22 @@ async function editParcel(id) {
             
             if (p.is_cod) {
                 document.getElementById('codAmountDiv').classList.remove('hidden');
+            }
+            
+            // Show and populate dimensions if they exist
+            if (p.length || p.width || p.height) {
+                document.getElementById('showDimensions').checked = true;
+                document.getElementById('dimensionsDiv').classList.remove('hidden');
+                document.getElementById('length').value = p.length || '';
+                document.getElementById('width').value = p.width || '';
+                document.getElementById('height').value = p.height || '';
+            }
+            
+            // Show and populate payment method if it exists
+            if (p.payment_method) {
+                document.getElementById('showPaymentMethod').checked = true;
+                document.getElementById('paymentMethodDiv').classList.remove('hidden');
+                document.getElementById('paymentMethod').value = p.payment_method;
             }
             
             showModal('createModal');
@@ -583,6 +658,13 @@ document.querySelector('[onclick="showModal(\'createModal\')"]').addEventListene
     currentParcelId = null;
     document.getElementById('modalTitle').textContent = 'New Parcel';
     document.getElementById('parcelForm').reset();
+    
+    // Hide optional sections
+    document.getElementById('codAmountDiv').classList.add('hidden');
+    document.getElementById('dimensionsDiv').classList.add('hidden');
+    document.getElementById('paymentMethodDiv').classList.add('hidden');
+    document.getElementById('showDimensions').checked = false;
+    document.getElementById('showPaymentMethod').checked = false;
 });
 
 // Book Parcel (Staff only)
