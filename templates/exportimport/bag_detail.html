@@ -436,6 +436,10 @@
                         <textarea id="editContents" rows="2" class="form-input"></textarea>
                     </div>
                     <div class="form-group">
+                        <label class="form-label text-sm">Shipment Date</label>
+                        <input type="date" id="editShipmentDate" class="form-input">
+                    </div>
+                    <div class="form-group">
                         <label class="form-label text-sm">Weight (KG)</label>
                         <input type="number" id="editWeight" step="0.01" min="0.01" class="form-input">
                     </div>
@@ -869,6 +873,7 @@ async function editShipment(shipmentId) {
             document.getElementById('editRecipientPhone').value = parcel.recipient_phone || '';
             document.getElementById('editRecipientAddress').value = parcel.recipient_address || '';
             document.getElementById('editContents').value = parcel.contents || '';
+            document.getElementById('editShipmentDate').value = parcel.shipment_date || '';
             document.getElementById('editWeight').value = parcel.weight_estimated || '';
             document.getElementById('editWeight').dataset.oldWeight = parcel.weight_estimated || '0';
             document.getElementById('editQuantity').value = parcel.quantity || 1;
@@ -937,6 +942,7 @@ async function saveShipmentEdit() {
         recipient_phone: document.getElementById('editRecipientPhone').value.trim(),
         recipient_address: document.getElementById('editRecipientAddress').value.trim(),
         contents: document.getElementById('editContents').value.trim(),
+        shipment_date: document.getElementById('editShipmentDate').value || null,
         weight_estimated: parseFloat(document.getElementById('editWeight').value),
         quantity: parseInt(document.getElementById('editQuantity').value) || 1,
         declared_value: parseFloat(document.getElementById('editDeclaredValue').value),

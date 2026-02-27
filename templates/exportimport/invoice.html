@@ -428,7 +428,7 @@ body {
     <div class="grid-row-1 b-thick-t bb">
         <div class="cell">
             <div class="cell-label center">Date</div>
-            <div class="cell-value bold">{{ formatted_date }}</div>
+            <div class="cell-value bold">{% if shipment.shipment_date %}{{ shipment.shipment_date|date:"d/m/Y" }}{% endif %}</div>
         </div>
         <div class="cell">
             <div class="cell-label center">Shipper Reference</div>

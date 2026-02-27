@@ -577,6 +577,7 @@ def get_parcel(request, parcel_id):
                 'status_display': shipment.get_current_status_display(),
                 'declared_value': str(shipment.declared_value),
                 'declared_currency': shipment.declared_currency,
+                'shipment_date': shipment.shipment_date.strftime('%Y-%m-%d') if shipment.shipment_date else None,
                 'weight_estimated': str(shipment.weight_estimated),
                 'quantity': shipment.quantity,
                 'length': str(shipment.length) if shipment.length else None,
@@ -670,6 +671,7 @@ def update_parcel(request, parcel_id):
         shipment.declared_currency = data.get('declared_currency', shipment.declared_currency)
         shipment.weight_estimated = data.get('weight_estimated', shipment.weight_estimated)
         shipment.quantity = data.get('quantity', shipment.quantity)
+        shipment.shipment_date = data.get('shipment_date', shipment.shipment_date)
         shipment.length = data.get('length', shipment.length)
         shipment.width = data.get('width', shipment.width)
         shipment.height = data.get('height', shipment.height)

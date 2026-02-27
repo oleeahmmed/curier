@@ -178,9 +178,18 @@ class Shipment(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    shipment_date = models.DateField(blank=True, null=True, help_text="Shipment date (editable)")
     booked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='booked_shipments')
     
     def save(self, *args, **kwargs):
+        # Auto-set shipment_date from created_at if not already set and not empty HAWB
+        if not self.shipment_date and not self.awb_number:
+            # Will be set after AWB is generated
+            pass
+        elif not self.shipment_date and self.awb_number and not self.awb_number.startswith('EM'):
+            # Set shipment_date from created_at for non-empty HAWBs
+            self.shipment_date = timezone.now().date()
+        
         if not self.awb_number and self.current_status != 'PENDING':
             date_str = timezone.now().strftime('%Y%m%d')
             random_num = str(uuid.uuid4().int)[:5]

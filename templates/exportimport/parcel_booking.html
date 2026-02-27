@@ -184,6 +184,11 @@
             </div>
             
             <div class="form-group">
+                <label class="form-label">Shipment Date</label>
+                <input type="date" id="shipmentDate" class="form-input">
+            </div>
+            
+            <div class="form-group">
                 <label class="form-label">Weight (KG)</label>
                 <input type="number" id="weight" step="0.01" class="form-input">
             </div>
@@ -363,6 +368,7 @@ document.getElementById('parcelForm').onsubmit = async (e) => {
         direction: document.getElementById('direction').value,
         declared_value: document.getElementById('declaredValue').value,
         declared_currency: document.getElementById('declaredCurrency').value,
+        shipment_date: document.getElementById('shipmentDate').value || null,
         weight_estimated: document.getElementById('weight').value,
         quantity: document.getElementById('quantity').value,
         contents: document.getElementById('contents').value,
@@ -442,6 +448,7 @@ async function editParcel(id) {
             document.getElementById('direction').value = p.direction;
             document.getElementById('declaredValue').value = p.declared_value;
             document.getElementById('declaredCurrency').value = p.declared_currency;
+            document.getElementById('shipmentDate').value = p.shipment_date || '';
             document.getElementById('weight').value = p.weight_estimated;
             document.getElementById('quantity').value = p.quantity || 1;
             document.getElementById('contents').value = p.contents;
